@@ -1,5 +1,6 @@
 """Deterministic snapshot builder. Index reconciliation, not disk state, activates data."""
 import hashlib
+import datetime as dt
 import json
 import re
 import time
@@ -35,7 +36,7 @@ def _import(path,root,decode,timezone,athlete_id,config):
                 zones.append(dict(latitude=coords[0],longitude=coords[1],radius_m=radius))
             config['privacy_zones']=zones
         activities=list(parse_activities(read_member(z,'activities.csv'),athlete_id,sid,timezone))
-        overrides=config.get('overrides',[])
+        overrides=config.get('overrides',[]);processed=[]
         for activity in activities:
             activity=apply_overrides(activity,overrides)
             filename=activity['filename'];revision=None;status='summary_only';telemetry=[]
@@ -66,7 +67,7 @@ def _import(path,root,decode,timezone,athlete_id,config):
                     failures+=1;status='quarantined';activity['quality_flags'].append('stream_quarantined');revision=None
             activity['stream_status']=status;activity['stream_revision_id']=revision or ''
             activity['flagged']=int(bool(activity['quality_flags']));activity['import_epoch']=epoch
-            spool.add(activity)
+            spool.add(activity);processed.append(activity)
             if revision:
                 membership=base('membership');membership.update({'activity_id':activity['activity_id'],'stream_revision_id':revision,'expected_records':len(telemetry),'event_id':hashlib.sha256((sid+':member:'+revision).encode()).hexdigest()});spool.add(membership)
         if 'structured_details.csv' in info['members']:
@@ -83,7 +84,14 @@ def _import(path,root,decode,timezone,athlete_id,config):
             from .csv_parser import number
             target=number(goal.get('target'))
             if target is None or target<=0:raise ValueError('invalid_goal_target')
-            item=base('goal');item.update({k:goal.get(k) for k in ('sport','metric','period')});item.update(target=target,event_id=sid+':goal:'+str(i));spool.add(item)
+            period=goal.get('period');today=dt.date.fromisoformat(local_fields(epoch,timezone)['local_date'])
+            if period=='year':begin=today.replace(month=1,day=1)
+            elif period=='month':begin=today.replace(day=1)
+            elif period=='week':begin=today-dt.timedelta(days=today.weekday())
+            else:raise ValueError('invalid_goal_period')
+            selected=[a for a in processed if a['sport']==goal.get('sport') and begin.isoformat()<=a['local_date']<=today.isoformat()]
+            value=sum(1 if goal['metric']=='activity_count' else (a.get(goal['metric']) or 0) for a in selected if (goal['metric']!='distance_m' or a['distance_valid']) and (goal['metric']!='moving_time_s' or a['duration_valid']))
+            item=base('goal');item.update({k:goal.get(k) for k in ('sport','metric','period')});item.update(target=target,event_id=sid+':goal:'+str(i),progress_value=value,progress_pct=round(100*value/target,1),period_start=begin.isoformat(),as_of=today.isoformat());spool.add(item)
     record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('exercise',0)+spool.counts.get('goal',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
     spool.add(record);chunks=spool.finish()
     manifest={'snapshot_id':sid,'import_epoch':epoch,'state':'emitted','counts':spool.counts,'chunks':chunks,'quarantined_streams':failures}

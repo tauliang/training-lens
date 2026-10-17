@@ -1,0 +1,22 @@
+name: Test and package
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -v
+      - run: python tools/generate_dashboards.py && git diff --exit-code -- build/training_lens/default/data/ui
+      - run: python tools/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: training-lens-python-${{ matrix.python }}
+          path: dist/*

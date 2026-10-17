@@ -40,7 +40,7 @@ PANELS={
  ('Imported weekly effort and preceding four recorded weeks','line',ACT+' | stats sum(relative_effort) AS effort count AS activities count(relative_effort) AS known BY local_week_start | sort local_week_start | streamstats current=f window=4 avg(effort) AS preceding_recorded_weeks | eval effort=if(known=0,null(),effort) | fields local_week_start effort preceding_recorded_weeks'),
  ('HR-zone minutes — configure boundaries in config.json','column',telemetry('zone')+' | eval minutes=seconds/60 | chart sum(minutes) OVER local_week_start BY zone'),
  ('Observed versus unobserved HR time','table',telemetry('zone')+' | dedup activity_id | stats sum(observed_s) AS observed_seconds sum(unobserved_s) AS unobserved_seconds sum(paused_s) AS paused_seconds'),
- ('Configured goals','table',base('goal',time=False,filters=False)+' | table sport metric target period'),
+ ('Configured goals — progress at import','table',base('goal',time=False,filters=False)+' | table sport metric target period period_start as_of progress_value progress_pct'),
  ('Effort coverage','table',ACT+' | stats count AS activities count(relative_effort) AS known_effort BY sport | eval coverage_pct=round(100*known_effort/activities,1)'),
 ]),
 'run_performance':('Run Performance','Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time.',[

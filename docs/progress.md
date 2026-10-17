@@ -28,3 +28,7 @@ Task 6: derived analysis RED→GREEN (HR intervals/pauses/gaps, interpolated bes
 Ruling: use only confirmed custom HR zones. Until configured, HR traces remain usable and zone panels explain missing configuration; do not silently treat the old exported maximum HR as current.
 
 Task 4: eight native Dashboard Studio pages generated; filter tokens use SPL string escaping, empty snapshot selection fails closed, activity IDs are validated, and detail queries are bounded by current stream membership. Generator/package tests RED→GREEN. Browser and runtime SPL checks pending.
+
+Private export acceptance: strict decoder processed every referenced activity file with zero quarantines; independently measured raw samples/laps and summary totals matched. Personal acceptance output stays in .private/.
+Runtime environment: QEMU indexer crash isolated to disposable container, recreating with Rosetta. Bundled Python 3.9 tests passed after correcting the copied test-tree ownership. AppInspect first pass identified missing custom-config reload trigger and Cloud-only index sizing restrictions; both addressed. Python 3.13-only future requirement is incompatible with the 10.0 baseline and will be disclosed.
+Goal-period progress added with RED→GREEN integration test; progress includes an explicit period and import as-of date.

@@ -57,3 +57,10 @@ class LifecycleTests(unittest.TestCase):
             result=ingest.import_archive(p,root/'state')
             self.assertEqual(result['counts'].get('geography',0),0);self.assertEqual(result['counts']['sample'],5)
             text=''.join(p.read_text() for p in (root/'state/spool').rglob('*.json'));self.assertNotIn('private',text);self.assertNotIn('latitude',text)
+    def test_goals_have_period_progress_and_unknown_metric_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);p=make_zip(root/'a.zip')
+            result=ingest.import_archive(p,root/'state',decode=False,config={'goals':[{'sport':'Run','metric':'distance_m','target':10000,'period':'year'}]})
+            goals=[json.loads(line) for chunk in result['chunks'] if '/goal/' in chunk['path'] for line in (root/'state'/chunk['path']).read_text().splitlines()]
+            self.assertIn('progress_value',goals[0]);self.assertEqual(goals[0]['period_start'][5:],'01-01')
+            with self.assertRaises(ValueError):ingest.import_archive(p,root/'other',decode=False,config={'goals':[{'sport':'Run','metric':'watts','target':10,'period':'year'}]})
