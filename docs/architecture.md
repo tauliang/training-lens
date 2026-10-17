@@ -14,10 +14,10 @@ FIT CRC validation is strict. Invalid streams are quarantined without erasing va
 
 ## Indexes and readiness
 
-- `training_lens`: activity summaries, memberships, sample telemetry without location, laps and derived metrics.
+- `training_lens`: activity summaries, memberships, sample telemetry without location, laps, derived metrics and durable readiness markers.
 - `training_lens_private`: opt-in exact location samples, with a separate role.
 - `training_lens_shared`: coarse geographic cells produced after endpoint and protected-zone masks.
-- `training_lens_ops`: worker status and immutable indexed-ready markers.
+- `training_lens_ops`: worker status with shorter operational retention.
 
 Reconciliation collapses logical groups by snapshot or stream revision and counts distinct event IDs. Snapshot manifests supply expected summary counts; memberships supply expected telemetry counts. A snapshot becomes ready only when all its groups match. Readiness is published as a single immutable marker instead of mutable registry lookups. Current searches select the ready snapshot with the newest import epoch; telemetry searches restrict to its stream membership. Empty ready/membership selections fail closed. Repeated physical events cannot double logical totals.
 

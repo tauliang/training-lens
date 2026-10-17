@@ -10,13 +10,13 @@ Ruling: publish a reconciled immutable ready event rather than mutable CSV regis
 
 ## Tasks
 
-- [ ] 1 Canonical parser and quality rules
-- [ ] 2 Safe archive lifecycle and deterministic spool
-- [ ] 3 Splunk input and reconciliation
-- [ ] 4 Native dashboards
-- [ ] 5 FIT and GPX decoding
-- [ ] 6 Derived intervals, best efforts, geography
-- [ ] 7 Package, compatibility validation, review and push
+- [x] 1 Canonical parser and quality rules
+- [x] 2 Safe archive lifecycle and deterministic spool
+- [x] 3 Splunk input and reconciliation
+- [x] 4 Native dashboards
+- [x] 5 FIT and GPX decoding
+- [x] 6 Derived intervals, best efforts, geography
+- [x] 7 Package, compatibility validation, review and push
 
 Task 1: complete — 7 parser tests RED (empty stub) → GREEN; private full-export count, SI distance, duration conflicts and effort disagreements matched independently measured baseline. No personal data stored in repository.
 
@@ -37,3 +37,11 @@ Final review: fresh read-only reviewer found five Important correctness issues. 
 Final review: re-graded unknown-effort baseline, GPX pace, pinned drilldown and calendar boundary findings as correctness rather than polish; corrected null ordering, observed GPX speed, snapshot-ID drilldown and configured-local calendar cutoff through import date. No deferred reviewer minors remain.
 Final: Ruling: strengthen shared endpoint privacy by suppressing whole cells intersecting 200m endpoint-radius buffers, in addition to masking first/last 200m track samples — prevents coarse rounding from reintroducing endpoints; cost is deliberately reduced geography coverage.
 Final: failed native startup after changing emulation was traced to root ownership of a test-created runtime parent, not app source. Corrected disposable directory ownership before restart.
+
+
+Final runtime acceptance: Enterprise 10.0.11 indexes the private full export and selects its corrected latest snapshot without double counting. Enterprise 10.4.4 automatically ingests the synthetic ZIP using its bundled Python 3.13. Withheld telemetry leaves the old snapshot current; releasing it activates the edited/deleted replacement with current count unchanged. All 46 panel searches pass on both versions; all eight native pages render without errors on 10.0.11.
+Final permissions acceptance: the built-in user role's wildcard grants were observed at runtime. Removed built-in inheritance from app roles and verified independent synthetic athlete/viewer/location users by direct searches, including a positive location sentinel. Existing broad roles remain an operator responsibility documented prominently.
+Final time-filter regression: Splunk pre-evaluates invalid constant tonumber arguments in an unselected branch; changed numeric detection and sanitized conversion inputs, then proved all-time, relative and fractional epoch selections with real SPL. The verifier now uses completed job status, because export streaming omitted error details. Added regression tests for regex anchors and failed job detection.
+Final review fixes: no deferred reviewer findings. Public deliverables omit personal source rows, activity statistics, locations, private screenshots, runtime credentials and raw exports.
+
+Final retention regression: readiness markers now live in the historical data index, not the 90-day operations index. A RED→GREEN configuration contract ensures the active snapshot cannot disappear merely because operational logs age out.

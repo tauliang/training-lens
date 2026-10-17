@@ -3,8 +3,12 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1]/'build/training_lens/default/data/ui'
-READY='search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$="latest" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,"__none__") | fields snapshot_id'
-TIME=' | where timestamp>=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp<=if($time.latest|s$="now",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$)))'
+READY='search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$="latest" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,"__none__") | fields snapshot_id'
+def time_expression(token):
+    value='$'+token+'|s$';numeric='match('+value+',"^[0-9]+([.][0-9]+)?$")'
+    # Splunk validates/evaluates constant arguments even in an unselected if branch.
+    return 'if('+numeric+',tonumber(if('+numeric+','+value+',"0")),relative_time(now(),if(('+numeric+' OR '+value+'="now"),"+0s",'+value+')))'
+TIME=' | where timestamp>='+time_expression('time.earliest')+' AND timestamp<='+time_expression('time.latest')
 FILTER=' | where ($sport|s$="All" OR sport=$sport|s$) AND ($gear|s$="All" OR gear=$gear|s$) AND ($quality_mode|s$!="Flagged only" OR flagged=1)'
 def base(kind='activity',time=True,filters=True):
     query='index=training_lens sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+READY+' ] | dedup event_id'
@@ -12,11 +16,12 @@ def base(kind='activity',time=True,filters=True):
     if filters:query+=FILTER
     return query
 
-def revisions():
-    return 'search '+base(time=False,filters=False)+' | where ($sport|s$="All" OR sport=$sport|s$) AND ($gear|s$="All" OR gear=$gear|s$) AND stream_revision_id!="" | fields stream_revision_id'
+def revisions(detail=False):
+    selected=' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$")' if detail else ''
+    return 'search '+base(time=False,filters=False)+selected+' | where ($sport|s$="All" OR sport=$sport|s$) AND ($gear|s$="All" OR gear=$gear|s$) AND stream_revision_id!="" | fields stream_revision_id'
 
 def telemetry(kind,index='training_lens',detail=False):
-    membership=revisions()
+    membership=revisions(detail)
     return 'index='+index+' sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+membership+' | appendpipe [ stats count | where count=0 | eval stream_revision_id="__none__" ] | fields stream_revision_id ] | dedup event_id'+(' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$")' if detail else TIME)
 
 VALID=' | where $quality_mode|s$!="Validated" OR (distance_valid=1 AND duration_valid=1)'
@@ -78,7 +83,7 @@ PANELS={
  ('Sport summaries','table',ACT+GUARDS+' | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m'),
 ]),
 'data_health':('Data Health','An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.',[
- ('Active snapshot','table','index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
+ ('Active snapshot','table','index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
  ('Pending and reconciled groups','table','`tl_reconciliation` | table snapshot_id groups matched expected_groups import_epoch'),
  ('Recent worker status','table','index=training_lens_ops sourcetype=training_lens:worker earliest=-7d | sort 0 - _time | head 20 | table _time status imports error_type'),
  ('Quality issues','table',base(time=False,filters=False)+' | where flagged=1 | table activity_id local_date sport quality_flags distance_m moving_time_s elapsed_time_s raw_relative_effort relative_effort'),

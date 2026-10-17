@@ -20,7 +20,7 @@ timezone = America/New_York
 decode_streams = true
 ```
 
-Assign `training_lens_athlete` to the intended user. Admin also has access. Restart Splunk after enabling/configuring the input. The worker creates this private inbox, owned by the Splunk service account:
+Assign `training_lens_athlete` as the intended user’s sole search role. Admin also has access. Splunk index grants are additive: built-in `user` and other existing roles may allow `*`, which includes these indexes. Review and remove wildcard grants for anyone who must not see health/location data; adding an app role cannot revoke permissions from other roles. The supplied athlete/viewer roles deliberately do not inherit the built-in wildcard role. Restart Splunk after enabling/configuring the input. The worker creates this private inbox, owned by the Splunk service account:
 
 ```text
 $SPLUNK_HOME/var/lib/training_lens/inbox/

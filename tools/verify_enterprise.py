@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Read-only runtime verification. Credentials come from environment variables."""
-import argparse,base64,json,os,ssl,sys,time,urllib.parse,urllib.request
+import argparse,base64,json,os,re,ssl,sys,time,urllib.parse,urllib.request
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+def substitute_tokens(query,tokens):
+    for token,value in tokens.items():query=query.replace('$'+token+'|s$',json.dumps(value)).replace('$'+token+'$',str(value))
+    if re.search(r'\$[A-Za-z_][A-Za-z0-9_.]*(?:\|s)?\$',query):raise ValueError('Unresolved dashboard token')
+    return query
+
 class Enterprise:
     def __init__(self,url,user,password,insecure=False):
-        self.url=url.rstrip('/');self.context=ssl._create_unverified_context() if insecure else ssl.create_default_context();self.auth='Basic '+base64.b64encode((user+':'+password).encode()).decode()
+        self.user=user;self.url=url.rstrip('/');self.context=ssl._create_unverified_context() if insecure else ssl.create_default_context();self.auth='Basic '+base64.b64encode((user+':'+password).encode()).decode()
     def request(self,endpoint,data=None):
         body=urllib.parse.urlencode(data).encode() if data is not None else None
         req=urllib.request.Request(self.url+endpoint,body,{'Authorization':self.auth})
@@ -14,13 +19,12 @@ class Enterprise:
     def get(self,endpoint):return json.loads(self.request(endpoint+'?output_mode=json&count=0'))
     def search(self,query):
         if not query.lstrip().startswith(('search ','|')):query='search '+query
-        output=self.request('/servicesNS/admin/training_lens/search/jobs/export',{'search':query,'output_mode':'json','preview':'false','earliest_time':'0','latest_time':'+10y'})
-        entries=[json.loads(line) for line in output.splitlines() if line.strip()];errors=[]
-        for entry in entries:
-            errors.extend(x for x in entry.get('messages',[]) if x.get('type') in ('ERROR','FATAL'))
-            if entry.get('type') in ('ERROR','FATAL'):errors.append(entry)
-        if errors:raise RuntimeError(json.dumps(errors))
-        return [x['result'] for x in entries if 'result' in x and not x.get('preview')]
+        scope='/servicesNS/'+urllib.parse.quote(self.user,safe='')+'/training_lens/search/jobs'
+        created=json.loads(self.request(scope,{'search':query,'exec_mode':'blocking','output_mode':'json','earliest_time':'0','latest_time':'+10y'}))
+        sid=urllib.parse.quote(created['sid'],safe='');job=self.get(scope+'/'+sid)['entry'][0]['content']
+        errors=[m for m in job.get('messages',[]) if m.get('type') in ('ERROR','FATAL')]
+        if job.get('isFailed') or errors:raise RuntimeError(json.dumps(errors) or 'Splunk search failed')
+        return self.get(scope+'/'+sid+'/results').get('results',[])
 
 def verify(api,expected=None):
     version=api.get('/services/server/info')['entry'][0]['content']['version'];report={'version':version,'checks':[]}
@@ -28,15 +32,14 @@ def verify(api,expected=None):
     stats=api.search('`tl_activities` | stats count AS activities sum(distance_m) AS meters')[0]
     if expected is not None:assert int(stats['activities'])==expected,'Activity count differs'
     report['checks'].append({'name':'active_summary','activities':int(stats['activities'])})
-    views=[v for v in api.get('/servicesNS/admin/training_lens/data/ui/views')['entry'] if v['acl']['app']=='training_lens'];assert len(views)==8
+    views=[v for v in api.get('/servicesNS/'+urllib.parse.quote(api.user,safe='')+'/training_lens/data/ui/views')['entry'] if v['acl']['app']=='training_lens'];assert len(views)==8
     first=api.search('`tl_activities` | head 1 | fields activity_id')[0]['activity_id']
     tokens={'snapshot':'latest','sport':'All','gear':'All','quality_mode':'Reported','units':'Metric','activity_id':first,'time.earliest':'0','time.latest':'+10y'}
     for view in views:
         definition=json.loads(ET.fromstring(view['content']['eai:data']).findtext('definition'))
         for ds in definition['dataSources'].values():
             query=ds['options']['query']
-            for token,value in tokens.items():query=query.replace('$'+token+'|s$',json.dumps(value)).replace('$'+token+'$',value)
-            assert '$' not in query,'Unresolved token in '+view['name']+'/'+ds['name']
+            query=substitute_tokens(query,tokens)
             start=time.monotonic();rows=api.search(query);report['checks'].append({'view':view['name'],'panel':ds['name'],'rows':len(rows),'seconds':round(time.monotonic()-start,3)})
     return report
 

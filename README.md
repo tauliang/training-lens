@@ -46,3 +46,5 @@ TLS verification is on by default. `--insecure-local-test` is restricted to loca
 Single athlete, single Linux instance, Splunk Enterprise 10.x. Distributed ingestion, API synchronization, custom route matching/calendar components and modeled Fitness & Freshness are outside this release. Set custom HR boundaries before expecting zone results. Dates are UTC instants with configurable IANA reporting timezone. The included role and index layout keeps raw health/location data private; a separately published shared dashboard is not included.
 
 Apache-2.0, with a bundled MIT-licensed FIT decoder. This independent project is not affiliated with Strava or Splunk.
+
+Validated on Enterprise **10.0.11** and **10.4.4**, with 40 tests, all 46 panel searches, automatic snapshot lifecycle checks and eight-page browser validation. AppInspect has zero current errors/failures; its Python 3.13-only future declaration finding is documented in the validation report because the app also supports Enterprise 10.0's Python 3.9 runtime.
