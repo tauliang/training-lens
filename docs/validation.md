@@ -80,3 +80,6 @@ Final browser acceptance on both versions covers all ten routes with no definiti
 
 
 The local API probe median was0.165seconds across95 current data-source checks (maximum0.719s), versus0.149seconds across77 prior panel checks (maximum0.243s). Expanded API chain checks are independent jobs, whereas the browser reuses base results; these timings do not establish an end-to-end speedup. The verified reduction is45independent page bases versus77previously. Browser runs completed without observed search failures and global concurrency settings were unchanged.
+
+
+The native scheduled inbox worker on10.0.11 imported a dropped219-workout ZIP, processed an identical alias without another snapshot, then imported an overlapping/reordered220-workout ZIP. Scheduled reconciliation activated220activities with220distinct activity IDs. Physical snapshot manifests increased from the two fixture baselines to four, exactly one for each distinct dropped export; the renamed copy added none. No import CLI or forged ready event was used in this acceptance run.
