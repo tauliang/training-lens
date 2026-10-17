@@ -1,0 +1,11 @@
+__pycache__/
+*.py[co]
+.venv*/
+.private/
+.superpowers/
+*.zip
+*.fit
+*.gpx
+*.ndjson
+*.log
+.DS_Store
