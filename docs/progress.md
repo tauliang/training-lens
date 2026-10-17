@@ -19,3 +19,5 @@ Ruling: publish a reconciled immutable ready event rather than mutable CSV regis
 - [ ] 7 Package, compatibility validation, review and push
 
 Task 1: complete — 7 parser tests RED (empty stub) → GREEN; private full-export count, SI distance, duration conflicts and effort disagreements matched independently measured baseline. No personal data stored in repository.
+
+Task 2: complete — archive/lifecycle RED→GREEN, 12 tests pass. Root cause of the recovery assertion was missing notification of repaired chunks, corrected by comparing the prior manifest before rebuilding. Stable scans, content hashes, bounded nested decompression, explicit errors and independent snapshots covered.

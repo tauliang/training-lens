@@ -1,0 +1,90 @@
+"""Deterministic snapshot builder. Index reconciliation, not disk state, activates data."""
+import hashlib
+import json
+import time
+import zipfile
+from pathlib import Path
+from .archive import inspect_archive,read_member
+from .csv_parser import PARSER_VERSION,parse_activities,apply_overrides,local_fields
+from .spool import Spool
+from .state import lock,load,write_json
+
+def import_archive(path,root,decode=True,timezone='UTC',athlete_id='personal',config=None):
+    root=Path(root)
+    with lock(root):return _import(Path(path),root,decode,timezone,athlete_id,config or {})
+
+def _import(path,root,decode,timezone,athlete_id,config):
+    info=inspect_archive(path);settings={'parser':PARSER_VERSION,'decode':decode,'timezone':timezone,'athlete':athlete_id,'config':config}
+    sid=hashlib.sha256((info['sha256']+json.dumps(settings,sort_keys=True)).encode()).hexdigest()
+    manifest_path=root/'manifests'/(sid+'.json');previous=load(manifest_path)
+    if previous and all((root/c['path']).exists() and hashlib.sha256((root/c['path']).read_bytes()).hexdigest()==c['sha256'] for c in previous['chunks']):return previous
+    epoch=previous['import_epoch'] if previous else time.time();spool=Spool(root);failures=0;expanded=0
+    def base(kind):return {'kind':kind,'athlete_id':athlete_id,'snapshot_id':sid,'timestamp':epoch,'import_epoch':epoch,'schema_version':1,'parser_version':PARSER_VERSION}
+    with zipfile.ZipFile(path) as z:
+        activities=list(parse_activities(read_member(z,'activities.csv'),athlete_id,sid,timezone))
+        overrides=config.get('overrides',[])
+        for activity in activities:
+            activity=apply_overrides(activity,overrides)
+            filename=activity['filename'];revision=None;status='summary_only';telemetry=[]
+            if filename and filename not in info['members']:activity['quality_flags'].append('missing_stream');status='missing'
+            elif filename and decode:
+                try:
+                    raw=read_member(z,filename);expanded+=len(raw)
+                    if expanded>4*1024**3:raise ValueError('aggregate_decode_limit')
+                    revision=hashlib.sha256((athlete_id+':'+activity['activity_id']+':'+PARSER_VERSION).encode()+raw).hexdigest()
+                    # Configuration determines derived data and privacy; raw revision remains reusable.
+                    revision=hashlib.sha256((revision+json.dumps(config,sort_keys=True)).encode()).hexdigest()
+                    from .streams import decode_activity
+                    from .derive import derive_records
+                    raw_records=list(decode_activity(raw,filename,revision))
+                    first=next((r['timestamp'] for r in raw_records if r['kind']=='sample'),None)
+                    if first is not None:
+                        activity['csv_timestamp']=activity['timestamp'];activity['stream_timestamp']=first
+                        if abs(first-activity['timestamp'])>30:activity['quality_flags'].append('timestamp_conflict')
+                        activity['timestamp']=first;activity['time_basis']='stream_utc';activity.update(local_fields(first,timezone))
+                    telemetry=list(derive_records(raw_records,config,activity))
+                    for ordinal,r in enumerate(telemetry):
+                        r.update({'athlete_id':athlete_id,'activity_id':activity['activity_id'],'stream_revision_id':revision,'schema_version':1,'parser_version':PARSER_VERSION})
+                        r['event_id']=hashlib.sha256((revision+':'+r['kind']+':'+str(ordinal)).encode()).hexdigest()
+                        spool.add(r)
+                    status='decoded'
+                except (ValueError,KeyError,EOFError,OSError) as error:
+                    if str(error)=='aggregate_decode_limit':raise
+                    failures+=1;status='quarantined';activity['quality_flags'].append('stream_quarantined');revision=None
+            activity['stream_status']=status;activity['stream_revision_id']=revision or ''
+            activity['flagged']=int(bool(activity['quality_flags']));activity['import_epoch']=epoch
+            spool.add(activity)
+            if revision:
+                membership=base('membership');membership.update({'activity_id':activity['activity_id'],'stream_revision_id':revision,'expected_records':len(telemetry),'event_id':hashlib.sha256((sid+':member:'+revision).encode()).hexdigest()});spool.add(membership)
+        # Configured goals/preferences are kept as operational data, never raw account demographics.
+        for i,goal in enumerate(config.get('goals',[])):
+            if goal.get('metric') not in ('distance_m','moving_time_s','activity_count','elevation_gain_m'):raise ValueError('invalid_goal_metric')
+            from .csv_parser import number
+            target=number(goal.get('target'))
+            if target is None or target<=0:raise ValueError('invalid_goal_target')
+            item=base('goal');item.update({k:goal.get(k) for k in ('sport','metric','period')});item.update(target=target,event_id=sid+':goal:'+str(i));spool.add(item)
+    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
+    spool.add(record);chunks=spool.finish()
+    manifest={'snapshot_id':sid,'import_epoch':epoch,'state':'emitted','counts':spool.counts,'chunks':chunks,'quarantined_streams':failures}
+    write_json(manifest_path,manifest);return manifest
+
+def scan(root,now=None,decode=True,timezone='UTC',athlete_id='personal',config=None):
+    root=Path(root);(root/'inbox').mkdir(parents=True,exist_ok=True,mode=0o700);now=time.time() if now is None else now
+    results=[]
+    with lock(root):
+        state=load(root/'watcher.json',{})
+        for path in sorted((root/'inbox').glob('*.zip')):
+            if path.is_symlink():continue
+            stamp=[path.stat().st_size,path.stat().st_mtime_ns];prev=state.get(path.name)
+            if not prev or prev['stamp']!=stamp:state[path.name]={'stamp':stamp,'since':now};continue
+            if now-prev['since']<60:continue
+            prior_manifest=load(root/'manifests'/(prev.get('snapshot_id','none')+'.json'))
+            repaired=bool(prior_manifest and any(not (root/c['path']).exists() for c in prior_manifest['chunks']))
+            try:
+                prior=prev.get('snapshot_id');manifest=_import(path,root,decode,timezone,athlete_id,config or {})
+                if prior!=manifest['snapshot_id'] or repaired:results.append(manifest)
+                prev.update(snapshot_id=manifest['snapshot_id'],chunks_missing=False)
+            except (ValueError,zipfile.BadZipFile,OSError):
+                results.append({'state':'failed','error':'archive_rejected'})
+        write_json(root/'watcher.json',state)
+    return results
