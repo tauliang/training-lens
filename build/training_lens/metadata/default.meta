@@ -1,0 +1,35 @@
+[]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+[savedsearches/Training Lens reconcile imports]
+access = read : [ admin ], write : [ admin ]
+
+[savedsearches/Training Lens refresh metric availability]
+access = read : [ admin ], write : [ admin ]
+
+[savedsearches/Training Lens refresh dimension options]
+access = read : [ admin ], write : [ admin ]
+
+[lookups/training_lens_metric_catalog.csv]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+
+[transforms/training_lens_metric_catalog]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+
+[lookups/training_lens_metric_availability.csv]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+
+[transforms/training_lens_metric_availability]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+
+[lookups/training_lens_dimension_options.csv]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+
+[transforms/training_lens_dimension_options]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none

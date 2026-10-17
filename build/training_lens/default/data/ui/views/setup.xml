@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Setup</label><description>Enable the worker in local/inputs.conf, then place exports in $SPLUNK_HOME/var/lib/training_lens/inbox/. Settings are admin-owned files; see the app README for HR zones, goals, corrections, timezone, roles and privacy.</description><definition>{
+  "title": "Setup",
+  "description": "Enable the worker in local/inputs.conf, then place exports in $SPLUNK_HOME/var/lib/training_lens/inbox/. Settings are admin-owned files; see the app README for HR zones, goals, corrections, timezone, roles and privacy.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.table",
+      "title": "Configuration \u00b7 see Data Health for import readiness",
+      "dataSources": {
+        "primary": "table_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "table_0": {
+      "type": "ds.search",
+      "name": "table_0",
+      "options": {
+        "query": "| makeresults | eval worker=\"Enable script input in local/inputs.conf\", inbox=\"SPLUNK_HOME/var/lib/training_lens/inbox/\", config=\"Admin-managed config.json in the runtime directory\", zones=\"Configure effective-dated custom HR boundaries\", privacy=\"Export zones and 200m endpoint buffers applied; exact GPS off by default\", access=\"Assign athlete role; location role only for optional exact GPS\" | table worker inbox config zones privacy access | eval data_health=\"Open Data Health from the app navigation\"",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {},
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 360
+        }
+      }
+    ],
+    "globalInputs": []
+  }
+}</definition></dashboard>

@@ -1,0 +1,190 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Geography</label><description>Privacy-masked cells count activity visits, not GPS samples. Endpoint buffers and exported privacy zones are applied before indexing. The table remains usable without a basemap.</description><definition>{
+  "title": "Geography",
+  "description": "Privacy-masked cells count activity visits, not GPS samples. Endpoint buffers and exported privacy zones are applied before indexing. The table remains usable without a basemap.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.map",
+      "title": "Privacy-masked activity visits \u00b7 top 1000 cells",
+      "dataSources": {
+        "primary": "map"
+      },
+      "options": {
+        "layers": [
+          {
+            "type": "bubble",
+            "latitude": "&gt; primary | seriesByName(\"latitude\")",
+            "longitude": "&gt; primary | seriesByName(\"longitude\")",
+            "bubbleSize": "&gt; primary | seriesByName(\"visits\")"
+          }
+        ]
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.table",
+      "title": "Geography details",
+      "dataSources": {
+        "primary": "table_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "dimensions": {
+      "type": "ds.search",
+      "name": "dimensions",
+      "options": {
+        "query": "| inputlookup training_lens_dimension_options | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "sport_options": {
+      "type": "ds.chain",
+      "name": "sport_options",
+      "options": {
+        "query": "| where dimension=\"sport\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "gear_options": {
+      "type": "ds.chain",
+      "name": "gear_options",
+      "options": {
+        "query": "| where dimension=\"gear\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "map": {
+      "type": "ds.search",
+      "name": "map",
+      "options": {
+        "query": "index=strava_shared sourcetype=training_lens:geography earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | stats sum(visits) AS visits BY latitude longitude | sort 0 - visits | head 1000",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "table_1": {
+      "type": "ds.search",
+      "name": "table_1",
+      "options": {
+        "query": "index=strava_shared sourcetype=training_lens:geography [ | makeresults | eval search=if($geo_details|s$=\"Cells (top 1000)\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | stats sum(visits) AS visits dc(activity_id) AS activities BY latitude longitude | sort 0 - visits | head 1000 | where $geo_details|s$=\"Cells (top 1000)\" | append [ search index=strava_shared sourcetype=training_lens:geography [ | makeresults | eval search=if($geo_details|s$=\"Sport coverage\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | stats dc(activity_id) AS mapped_activities BY sport | where $geo_details|s$=\"Sport coverage\" ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period (Year grain uses history)",
+      "options": {
+        "token": "time",
+        "defaultValue": "-1y,now"
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "dataSources": {
+        "primary": "sport_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "gear": {
+      "type": "input.dropdown",
+      "title": "Gear",
+      "dataSources": {
+        "primary": "gear_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "gear",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "geo_details": {
+      "type": "input.dropdown",
+      "title": "Geography details",
+      "options": {
+        "token": "geo_details",
+        "defaultValue": "Cells (top 1000)",
+        "items": [
+          {
+            "label": "Cells (top 1000)",
+            "value": "Cells (top 1000)"
+          },
+          {
+            "label": "Sport coverage",
+            "value": "Sport coverage"
+          }
+        ]
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 360,
+          "w": 1200,
+          "h": 360
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "snapshot",
+      "sport",
+      "gear",
+      "geo_details"
+    ]
+  }
+}</definition></dashboard>

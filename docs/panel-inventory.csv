@@ -1,0 +1,78 @@
+dashboard,original_panel,destination
+overview,Activities,Volume summary / volume trend / activities and coverage
+overview,Moving hours,Volume summary / volume trend / activities and coverage
+overview,Distance (selected units),Volume summary / volume trend / activities and coverage
+overview,Flagged activities,Volume summary / volume trend / activities and coverage
+overview,Weekly moving hours by sport,Volume summary / volume trend / activities and coverage
+overview,Sport mix by moving hours,Volume summary / volume trend / activities and coverage
+overview,Annual comparison through import calendar date,Volume summary / volume trend / activities and coverage
+overview,Annual activities by sport — all years,Volume summary / volume trend / activities and coverage
+overview,Annual activity changes by sport — all years,Volume summary / volume trend / activities and coverage
+overview,Coverage,Volume summary / volume trend / activities and coverage
+overview,Recent activities — click to inspect,Volume summary / volume trend / activities and coverage
+training,Weekly activity log,Load trend / configured goal / training details
+training,Imported weekly effort and preceding four recorded weeks,Load trend / configured goal / training details
+training,HR-zone minutes — configure boundaries in config.json,Load trend / configured goal / training details
+training,Observed versus unobserved HR time,Load trend / configured goal / training details
+training,Configured goals — progress at import,Load trend / configured goal / training details
+training,Effort coverage,Load trend / configured goal / training details
+run_performance,Running distance (selected units),Performance trend / best-effort target / comparable runs and coverage
+run_performance,Distance-weighted pace (minutes per selected distance unit),Performance trend / best-effort target / comparable runs and coverage
+run_performance,Weekly running distance,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Weekly distance-weighted pace,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Annual running distance — all years,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Annual running pace (min/km or min/mile) — all years,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Annual running cadence (steps/min) — confirm source units,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Annual running metric coverage — all years,Performance trend / best-effort target / comparable runs and coverage
+run_performance,App-derived best efforts,Performance trend / best-effort target / comparable runs and coverage
+run_performance,Comparable runs,Performance trend / best-effort target / comparable runs and coverage
+activity_detail,Activity summary,Summary / selected telemetry / detail mode
+activity_detail,Heart rate over elapsed seconds,Summary / selected telemetry / detail mode
+activity_detail,Pace over elapsed seconds (minutes/km),Summary / selected telemetry / detail mode
+activity_detail,Elevation over elapsed seconds (meters),Summary / selected telemetry / detail mode
+activity_detail,Cadence over elapsed seconds (raw device units),Summary / selected telemetry / detail mode
+activity_detail,Device laps,Summary / selected telemetry / detail mode
+activity_detail,Derived kilometer splits,Summary / selected telemetry / detail mode
+activity_detail,HR zones and coverage,Summary / selected telemetry / detail mode
+activity_detail,Strength exercises,Summary / selected telemetry / detail mode
+geography,Personal activity visits,Masked map / cell and sport details
+geography,Visited cells (one visit per activity and cell),Masked map / cell and sport details
+geography,Geography coverage by sport,Masked map / cell and sport details
+gear_sports,Recorded gear usage,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Gear distance by month,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Annual skiing moving speed (km/h or MPH) — includes lifts if recorded,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Annual moving speed by sport (km/h or MPH) — all years,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Annual sport metric coverage — all years,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Equipment thresholds — recorded lifetime mileage,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Strength sessions,Usage and performance trend / thresholds / gear and sport details
+gear_sports,Sport summaries,Usage and performance trend / thresholds / gear and sport details
+vitals,Activities with average HR,Selected vital / zone history / coverage and limitations
+vitals,Time-weighted exercise HR (bpm),Selected vital / zone history / coverage and limitations
+vitals,Highest recorded activity HR (bpm),Selected vital / zone history / coverage and limitations
+vitals,Activities with weight recorded,Selected vital / zone history / coverage and limitations
+vitals,Vitals availability and coverage,Selected vital / zone history / coverage and limitations
+vitals,Annual time-weighted exercise HR by sport (bpm),Selected vital / zone history / coverage and limitations
+vitals,Monthly time-weighted exercise HR by sport (bpm),Selected vital / zone history / coverage and limitations
+vitals,Annual highest recorded activity HR (bpm),Selected vital / zone history / coverage and limitations
+vitals,Annual heart-rate-zone hours — configured boundaries,Selected vital / zone history / coverage and limitations
+vitals,Recorded athlete weight by activity year — original export units,Selected vital / zone history / coverage and limitations
+vitals,Annual HR and weight coverage by sport,Selected vital / zone history / coverage and limitations
+social,Accepted followers,Network history / engagement history / follower table / current network and availability
+social,Following,Network history / engagement history / follower table / current network and availability
+social,Pending follower requests,Network history / engagement history / follower table / current network and availability
+social,Mutual connections,Network history / engagement history / follower table / current network and availability
+social,Social data availability,Network history / engagement history / follower table / current network and availability
+social,Follower growth — observed at import dates,Network history / engagement history / follower table / current network and availability
+social,Follower count changes between observed exports,Network history / engagement history / follower table / current network and availability
+social,Comments and kudos given — monthly,Network history / engagement history / follower table / current network and availability
+social,Interactions received from current followers — monthly,Network history / engagement history / follower table / current network and availability
+social,Top current followers — received comments and kudos,Network history / engagement history / follower table / current network and availability
+social,Network roster — selected snapshot,Network history / engagement history / follower table / current network and availability
+data_health,Active snapshot,Import readiness / selected coverage / diagnostics
+data_health,Pending and reconciled groups,Import readiness / selected coverage / diagnostics
+data_health,Recent worker status,Import readiness / selected coverage / diagnostics
+data_health,Quality issues,Import readiness / selected coverage / diagnostics
+data_health,Completeness by year and sport,Import readiness / selected coverage / diagnostics
+data_health,Import manifests,Import readiness / selected coverage / diagnostics
+setup,Latest imports,Configuration guidance; imports moved to Data Health
+setup,Setup checklist,Configuration guidance; imports moved to Data Health

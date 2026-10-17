@@ -1,0 +1,385 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Gear and Sports</label><description>Recorded gear usage can be incomplete. Names are preserved; correct aliases through overrides. No combined pace is calculated across sports. Year grain uses snapshot history; Comparable YTD ends at the import calendar date. Empty charts mean no eligible data in the selection. Automatic selects the first available metric; invalid bookmarked IDs show an explicit unavailable state. Availability is snapshot-wide and refreshes every five minutes.</description><definition>{
+  "title": "Gear and Sports",
+  "description": "Recorded gear usage can be incomplete. Names are preserved; correct aliases through overrides. No combined pace is calculated across sports. Year grain uses snapshot history; Comparable YTD ends at the import calendar date. Empty charts mean no eligible data in the selection. Automatic selects the first available metric; invalid bookmarked IDs show an explicit unavailable state. Availability is snapshot-wide and refreshes every five minutes.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.line",
+      "title": "$usage_metadata:result.title$",
+      "dataSources": {
+        "primary": "usage_chart"
+      },
+      "options": {
+        "nullValueDisplay": "gaps",
+        "yAxisTitleText": "$usage_metadata:result.unit$",
+        "xAxisTitleText": "Period"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.table",
+      "title": "Equipment thresholds \u00b7 recorded lifetime mileage",
+      "dataSources": {
+        "primary": "table_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.table",
+      "title": "Gear / sport details",
+      "dataSources": {
+        "primary": "table_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "dimensions": {
+      "type": "ds.search",
+      "name": "dimensions",
+      "options": {
+        "query": "| inputlookup training_lens_dimension_options | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "sport_options": {
+      "type": "ds.chain",
+      "name": "sport_options",
+      "options": {
+        "query": "| where dimension=\"sport\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "gear_options": {
+      "type": "ds.chain",
+      "name": "gear_options",
+      "options": {
+        "query": "| where dimension=\"gear\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "metric_options": {
+      "type": "ds.search",
+      "name": "metric_options",
+      "options": {
+        "query": "| inputlookup training_lens_metric_availability | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | where sport=$sport|s$ AND gear=$gear|s$ AND valid_count&gt;0 AND metric_id IN (\"activities\",\"distance\",\"hours\",\"speed\",\"pace\",\"elevation\",\"avg_hr\") | lookup training_lens_metric_catalog metric_id OUTPUT label sort_order prerequisite | stats first(label) AS label first(sort_order) AS sort_order max(refreshed_at) AS refreshed_at BY metric_id | eval label=if(now()-refreshed_at&gt;900,label.\" \u00b7 cache stale\",label) | append [ | makeresults | eval metric_id=\"__auto__\",label=\"Automatic / first available\",sort_order=-1 ] | sort 0 sort_order metric_id",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "usage_options": {
+      "type": "ds.chain",
+      "name": "usage_options",
+      "options": {
+        "query": "| where metric_id=\"__auto__\" OR metric_id IN (\"activities\",\"distance\",\"hours\",\"speed\",\"pace\",\"elevation\",\"avg_hr\")",
+        "extend": "metric_options"
+      }
+    },
+    "usage_metadata": {
+      "type": "ds.chain",
+      "name": "usage_metadata",
+      "options": {
+        "query": "| where metric_id!=\"__auto__\" AND ($usage|s$=\"__auto__\" OR metric_id=$usage|s$) | head 1 | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),title=label.\" (\".unit.\")\" | appendpipe [ stats count | where count=0 | eval metric_id=\"__none__\",unit=\"\",title=\"Choose an available metric \u00b7 cache pending or selection unavailable\" ] | fields metric_id title unit",
+        "extend": "usage_options",
+        "enableSmartSources": true
+      }
+    },
+    "usage_aggregate": {
+      "type": "ds.search",
+      "name": "usage_aggregate",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where ($grain|s$=\"Year\" OR (timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))))) | where $grain|s$!=\"Year\" OR $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | eval metric_id=$usage_metadata:result.metric_id|s$ | eval eligible=case(metric_id=\"activities\",if(true(),1,0),metric_id=\"distance\",if(isnotnull(distance_m) AND ($quality_mode|s$!=\"Validated\" OR distance_valid=1),1,0),metric_id=\"hours\",if(isnotnull(moving_time_s) AND ($quality_mode|s$!=\"Validated\" OR duration_valid=1),1,0),metric_id=\"speed\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,1,0),metric_id=\"pace\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,1,0),metric_id=\"elevation\",if(isnotnull(elevation_gain_m),1,0),metric_id=\"avg_hr\",if(average_hr&gt;0 AND average_hr&lt;=255 AND duration_valid=1 AND moving_time_s&gt;0,1,0)),numerator=case(metric_id=\"activities\",if(true(),1,null()),metric_id=\"distance\",if(isnotnull(distance_m) AND ($quality_mode|s$!=\"Validated\" OR distance_valid=1),distance_m,null()),metric_id=\"hours\",if(isnotnull(moving_time_s) AND ($quality_mode|s$!=\"Validated\" OR duration_valid=1),moving_time_s,null()),metric_id=\"speed\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,distance_m,null()),metric_id=\"pace\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,moving_time_s,null()),metric_id=\"elevation\",if(isnotnull(elevation_gain_m),elevation_gain_m,null()),metric_id=\"avg_hr\",if(average_hr&gt;0 AND average_hr&lt;=255 AND duration_valid=1 AND moving_time_s&gt;0,average_hr*moving_time_s,null())),denominator=case(metric_id=\"activities\",if(true(),1,null()),metric_id=\"distance\",if(isnotnull(distance_m) AND ($quality_mode|s$!=\"Validated\" OR distance_valid=1),1,null()),metric_id=\"hours\",if(isnotnull(moving_time_s) AND ($quality_mode|s$!=\"Validated\" OR duration_valid=1),1,null()),metric_id=\"speed\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,moving_time_s,null()),metric_id=\"pace\",if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,distance_m,null()),metric_id=\"elevation\",if(isnotnull(elevation_gain_m),1,null()),metric_id=\"avg_hr\",if(average_hr&gt;0 AND average_hr&lt;=255 AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null())) | eval bucket=case($grain|s$=\"Year\",coalesce(local_year,strftime(timestamp,\"%Y\")),$grain|s$=\"Month\",coalesce(local_month,strftime(timestamp,\"%Y-%m\")),true(),coalesce(local_week_start,strftime(relative_time(timestamp,\"@w1\"),\"%Y-%m-%d\"))),series=case(metric_id=\"zones\",\"Zone \".zone,metric_id IN (\"pace\",\"speed\") AND $sport|s$=\"All\",coalesce(sport,\"Unspecified\").if($split|s$=\"Gear\",\" \u00b7 \".coalesce(gear,\"Unspecified\"),\"\"),$split|s$=\"Sport\",coalesce(sport,\"Unspecified\"),$split|s$=\"Gear\",coalesce(gear,\"Unspecified\"),true(),\"Selected activities\") | stats sum(numerator) AS numerator sum(denominator) AS denominator max(numerator) AS peak median(numerator) AS midpoint avg(numerator) AS average dc(eval(if(eligible=1,local_date,null()))) AS days sum(eligible) AS valid_count count AS total_count BY bucket series metric_id | eval value=case(metric_id=\"activities\",if(valid_count&gt;0,numerator,null()),metric_id=\"distance\",if(valid_count&gt;0,numerator,null()),metric_id=\"hours\",if(valid_count&gt;0,numerator,null()),metric_id=\"speed\",if(denominator&gt;0,numerator/denominator,null()),metric_id=\"pace\",if(denominator&gt;0,numerator/denominator,null()),metric_id=\"elevation\",if(valid_count&gt;0,numerator,null()),metric_id=\"avg_hr\",if(denominator&gt;0,numerator/denominator,null())) | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit metric_factor imperial_factor precision | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),value=round(value*if($units|s$=\"Imperial\",imperial_factor,metric_factor),precision),coverage=if(total_count&gt;0,100*valid_count/total_count,null()),series_label=series.\" \u00b7 \".label.\" (\".unit.\")\" | fields bucket series_label value unit coverage | sort 0 bucket series_label",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "usage_chart": {
+      "type": "ds.chain",
+      "name": "usage_chart",
+      "options": {
+        "query": "| xyseries bucket series_label value | appendpipe [ where $grain|s$=\"Year\" | makecontinuous bucket span=1 | eval _expanded=1 ] | where $grain|s$!=\"Year\" OR _expanded=1 | fields - _expanded",
+        "extend": "usage_aggregate"
+      }
+    },
+    "table_1": {
+      "type": "ds.search",
+      "name": "table_1",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:gear_threshold earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | table gear target_m recorded_m remaining_m",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "table_2": {
+      "type": "ds.search",
+      "name": "table_2",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:activity [ | makeresults | eval search=if($sport_details|s$=\"Gear usage\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval distance_m=if($quality_mode|s$=\"Validated\" AND distance_valid!=1,null(),distance_m), moving_time_s=if($quality_mode|s$=\"Validated\" AND duration_valid!=1,null(),moving_time_s) | eval display_distance=distance_m/if($units|s$=\"Imperial\",1609.344,1000) | stats count AS activities sum(display_distance) AS distance sum(moving_time_s) AS seconds BY gear sport | eval hours=round(seconds/3600,2) | fields gear sport activities distance hours | where $sport_details|s$=\"Gear usage\" | append [ search index=strava sourcetype=training_lens:activity [ | makeresults | eval search=if($sport_details|s$=\"Sport summaries\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval distance_m=if($quality_mode|s$=\"Validated\" AND distance_valid!=1,null(),distance_m), moving_time_s=if($quality_mode|s$=\"Validated\" AND duration_valid!=1,null(),moving_time_s) | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m | where $sport_details|s$=\"Sport summaries\" ] | append [ search index=strava sourcetype=training_lens:activity [ | makeresults | eval search=if($sport_details|s$=\"Strength sessions\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where sport=\"Weight Training\" | table activity_id local_date moving_time_s average_hr sets reps | where $sport_details|s$=\"Strength sessions\" ] | append [ search index=strava sourcetype=training_lens:activity [ | makeresults | eval search=if($sport_details|s$=\"Annual coverage\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | eval speed_ok=if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,1,0), valid_meters=if(speed_ok=1,distance_m,null()), valid_seconds=if(speed_ok=1,moving_time_s,null()) | stats count AS activities sum(speed_ok) AS speed_activities sum(valid_meters) AS meters sum(valid_seconds) AS seconds BY local_year sport | eval speed_coverage_pct=round(100*speed_activities/activities,1), speed=if(speed_activities&gt;0,round(meters/seconds*if($units|s$=\"Imperial\",2.2369362920544,3.6),2),null()), speed_unit=if($units|s$=\"Imperial\",\"MPH\",\"km/h\") | table local_year sport activities speed_activities speed_coverage_pct speed speed_unit | sort 0 sport local_year | where $sport_details|s$=\"Annual coverage\" ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period (Year grain uses history)",
+      "options": {
+        "token": "time",
+        "defaultValue": "-1y,now"
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "dataSources": {
+        "primary": "sport_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "gear": {
+      "type": "input.dropdown",
+      "title": "Gear",
+      "dataSources": {
+        "primary": "gear_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "gear",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "quality_mode": {
+      "type": "input.dropdown",
+      "title": "Quality",
+      "options": {
+        "token": "quality_mode",
+        "defaultValue": "Validated",
+        "items": [
+          {
+            "label": "Validated",
+            "value": "Validated"
+          },
+          {
+            "label": "Reported",
+            "value": "Reported"
+          },
+          {
+            "label": "Flagged only",
+            "value": "Flagged only"
+          }
+        ]
+      }
+    },
+    "units": {
+      "type": "input.dropdown",
+      "title": "Units",
+      "options": {
+        "token": "units",
+        "defaultValue": "Metric",
+        "items": [
+          {
+            "label": "Metric",
+            "value": "Metric"
+          },
+          {
+            "label": "Imperial",
+            "value": "Imperial"
+          }
+        ]
+      }
+    },
+    "grain": {
+      "type": "input.dropdown",
+      "title": "Time grain",
+      "options": {
+        "token": "grain",
+        "defaultValue": "Year",
+        "items": [
+          {
+            "label": "Week",
+            "value": "Week"
+          },
+          {
+            "label": "Month",
+            "value": "Month"
+          },
+          {
+            "label": "Year",
+            "value": "Year"
+          }
+        ]
+      }
+    },
+    "history_scope": {
+      "type": "input.dropdown",
+      "title": "Annual scope",
+      "options": {
+        "token": "history_scope",
+        "defaultValue": "Full years",
+        "items": [
+          {
+            "label": "Full years",
+            "value": "Full years"
+          },
+          {
+            "label": "Comparable YTD",
+            "value": "Comparable YTD"
+          }
+        ]
+      }
+    },
+    "split": {
+      "type": "input.dropdown",
+      "title": "Group series",
+      "options": {
+        "token": "split",
+        "defaultValue": "Sport",
+        "items": [
+          {
+            "label": "Total",
+            "value": "Total"
+          },
+          {
+            "label": "Sport",
+            "value": "Sport"
+          },
+          {
+            "label": "Gear",
+            "value": "Gear"
+          }
+        ]
+      }
+    },
+    "usage": {
+      "type": "input.dropdown",
+      "title": "Metric \u00b7 usage",
+      "dataSources": {
+        "primary": "usage_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"metric_id\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "usage",
+        "defaultValue": "__auto__",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "sport_details": {
+      "type": "input.dropdown",
+      "title": "Gear / sport details",
+      "options": {
+        "token": "sport_details",
+        "defaultValue": "Gear usage",
+        "items": [
+          {
+            "label": "Gear usage",
+            "value": "Gear usage"
+          },
+          {
+            "label": "Sport summaries",
+            "value": "Sport summaries"
+          },
+          {
+            "label": "Strength sessions",
+            "value": "Strength sessions"
+          },
+          {
+            "label": "Annual coverage",
+            "value": "Annual coverage"
+          }
+        ]
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 360,
+          "w": 1200,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 720,
+          "w": 1200,
+          "h": 360
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "snapshot",
+      "sport",
+      "gear",
+      "quality_mode",
+      "units",
+      "grain",
+      "history_scope",
+      "split",
+      "usage",
+      "sport_details"
+    ]
+  }
+}</definition></dashboard>

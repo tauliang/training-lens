@@ -1,0 +1,297 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Activity Detail</label><description>Select an activity from Overview or enter its numeric Strava ID. Missing-stream activities retain summaries. Zone charts require configured boundaries; no power curve is inferred from average watts.</description><definition>{
+  "title": "Activity Detail",
+  "description": "Select an activity from Overview or enter its numeric Strava ID. Missing-stream activities retain summaries. Zone charts require configured boundaries; no power curve is inferred from average watts.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.table",
+      "title": "Activity summary",
+      "dataSources": {
+        "primary": "table_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.line",
+      "title": "$telemetry_metadata:result.title$",
+      "dataSources": {
+        "primary": "telemetry_chart"
+      },
+      "options": {
+        "nullValueDisplay": "gaps",
+        "yAxisTitleText": "$telemetry_metadata:result.unit$",
+        "xAxisTitleText": "Elapsed seconds"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.table",
+      "title": "Activity details",
+      "dataSources": {
+        "primary": "table_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "dimensions": {
+      "type": "ds.search",
+      "name": "dimensions",
+      "options": {
+        "query": "| inputlookup training_lens_dimension_options | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "sport_options": {
+      "type": "ds.chain",
+      "name": "sport_options",
+      "options": {
+        "query": "| where dimension=\"sport\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "gear_options": {
+      "type": "ds.chain",
+      "name": "gear_options",
+      "options": {
+        "query": "| where dimension=\"gear\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "table_0": {
+      "type": "ds.search",
+      "name": "table_0",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | table activity_id local_date activity_name sport distance_m moving_time_s elapsed_time_s average_hr relative_effort gear stream_status quality_flags",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "metric_options": {
+      "type": "ds.search",
+      "name": "metric_options",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:sample earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | stats count(hr) AS sample_hr count(pace_min_km) AS sample_pace count(speed_mps) AS sample_speed count(altitude_m) AS sample_altitude count(cadence) AS sample_cadence count(watts) AS sample_power | transpose 0 column_name=metric_id | rename \"row 1\" AS valid_count | where valid_count&gt;0 | lookup training_lens_metric_catalog metric_id OUTPUT label sort_order | append [ | makeresults | eval metric_id=\"__auto__\",label=\"Automatic / first available\",sort_order=-1 ] | sort 0 sort_order",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "telemetry_options": {
+      "type": "ds.chain",
+      "name": "telemetry_options",
+      "options": {
+        "query": "| where metric_id=\"__auto__\" OR metric_id IN (\"sample_hr\",\"sample_pace\",\"sample_speed\",\"sample_altitude\",\"sample_cadence\",\"sample_power\")",
+        "extend": "metric_options"
+      }
+    },
+    "telemetry_metadata": {
+      "type": "ds.chain",
+      "name": "telemetry_metadata",
+      "options": {
+        "query": "| where metric_id!=\"__auto__\" AND ($telemetry|s$=\"__auto__\" OR metric_id=$telemetry|s$) | head 1 | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),title=label.\" (\".unit.\")\" | appendpipe [ stats count | where count=0 | eval metric_id=\"__none__\",unit=\"\",title=\"Choose an available metric \u00b7 cache pending or selection unavailable\" ] | fields metric_id title unit",
+        "extend": "telemetry_options",
+        "enableSmartSources": true
+      }
+    },
+    "telemetry_aggregate": {
+      "type": "ds.search",
+      "name": "telemetry_aggregate",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:sample earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | eval metric_id=$telemetry_metadata:result.metric_id|s$ | eval eligible=case(metric_id=\"sample_hr\",if(isnotnull(hr),1,0),metric_id=\"sample_pace\",if(isnotnull(pace_min_km),1,0),metric_id=\"sample_speed\",if(isnotnull(speed_mps),1,0),metric_id=\"sample_altitude\",if(isnotnull(altitude_m),1,0),metric_id=\"sample_cadence\",if(isnotnull(cadence),1,0),metric_id=\"sample_power\",if(isnotnull(watts),1,0)),numerator=case(metric_id=\"sample_hr\",if(isnotnull(hr),hr,null()),metric_id=\"sample_pace\",if(isnotnull(pace_min_km),pace_min_km,null()),metric_id=\"sample_speed\",if(isnotnull(speed_mps),speed_mps,null()),metric_id=\"sample_altitude\",if(isnotnull(altitude_m),altitude_m,null()),metric_id=\"sample_cadence\",if(isnotnull(cadence),cadence,null()),metric_id=\"sample_power\",if(isnotnull(watts),watts,null())),denominator=case(metric_id=\"sample_hr\",if(isnotnull(hr),1,null()),metric_id=\"sample_pace\",if(isnotnull(pace_min_km),1,null()),metric_id=\"sample_speed\",if(isnotnull(speed_mps),1,null()),metric_id=\"sample_altitude\",if(isnotnull(altitude_m),1,null()),metric_id=\"sample_cadence\",if(isnotnull(cadence),1,null()),metric_id=\"sample_power\",if(isnotnull(watts),1,null())) | bin elapsed_s span=5 | eval bucket=elapsed_s,series=\"Activity\" | stats sum(numerator) AS numerator sum(denominator) AS denominator max(numerator) AS peak median(numerator) AS midpoint avg(numerator) AS average dc(eval(if(eligible=1,local_date,null()))) AS days sum(eligible) AS valid_count count AS total_count BY bucket series metric_id | eval value=case(metric_id=\"sample_hr\",average,metric_id=\"sample_pace\",average,metric_id=\"sample_speed\",average,metric_id=\"sample_altitude\",average,metric_id=\"sample_cadence\",average,metric_id=\"sample_power\",average) | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit metric_factor imperial_factor precision | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),value=round(value*if($units|s$=\"Imperial\",imperial_factor,metric_factor),precision),coverage=if(total_count&gt;0,100*valid_count/total_count,null()),series_label=series.\" \u00b7 \".label.\" (\".unit.\")\" | fields bucket series_label value unit coverage | sort 0 bucket series_label",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "telemetry_chart": {
+      "type": "ds.chain",
+      "name": "telemetry_chart",
+      "options": {
+        "query": "| xyseries bucket series_label value",
+        "extend": "telemetry_aggregate"
+      }
+    },
+    "table_2": {
+      "type": "ds.search",
+      "name": "table_2",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:lap [ | makeresults | eval search=if($detail_mode|s$=\"Laps\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | sort timestamp | table elapsed_s distance_m elapsed_time_s moving_time_s hr cadence | where $detail_mode|s$=\"Laps\" | append [ search index=strava sourcetype=training_lens:split [ | makeresults | eval search=if($detail_mode|s$=\"Splits\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | table split distance_m duration_s | where $detail_mode|s$=\"Splits\" ] | append [ search index=strava sourcetype=training_lens:zone [ | makeresults | eval search=if($detail_mode|s$=\"Zones\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where activity_id=$activity_id|s$ AND match($activity_id|s$,\"^[0-9]{1,24}$\") | eval minutes=round(seconds/60,2) | table zone minutes observed_s unobserved_s paused_s | where $detail_mode|s$=\"Zones\" ] | append [ search index=strava sourcetype=training_lens:exercise [ | makeresults | eval search=if($detail_mode|s$=\"Exercises\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where activity_id=$activity_id|s$ | table exercise repetitions duration_s weight_raw | where $detail_mode|s$=\"Exercises\" ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "dataSources": {
+        "primary": "sport_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "gear": {
+      "type": "input.dropdown",
+      "title": "Gear",
+      "dataSources": {
+        "primary": "gear_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "gear",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "units": {
+      "type": "input.dropdown",
+      "title": "Units",
+      "options": {
+        "token": "units",
+        "defaultValue": "Metric",
+        "items": [
+          {
+            "label": "Metric",
+            "value": "Metric"
+          },
+          {
+            "label": "Imperial",
+            "value": "Imperial"
+          }
+        ]
+      }
+    },
+    "activity": {
+      "type": "input.text",
+      "title": "Activity ID",
+      "options": {
+        "token": "activity_id",
+        "defaultValue": "none"
+      }
+    },
+    "telemetry": {
+      "type": "input.dropdown",
+      "title": "Metric \u00b7 telemetry",
+      "dataSources": {
+        "primary": "telemetry_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"metric_id\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "telemetry",
+        "defaultValue": "__auto__",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "detail_mode": {
+      "type": "input.dropdown",
+      "title": "Activity details",
+      "options": {
+        "token": "detail_mode",
+        "defaultValue": "Laps",
+        "items": [
+          {
+            "label": "Laps",
+            "value": "Laps"
+          },
+          {
+            "label": "Splits",
+            "value": "Splits"
+          },
+          {
+            "label": "Zones",
+            "value": "Zones"
+          },
+          {
+            "label": "Exercises",
+            "value": "Exercises"
+          }
+        ]
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 360,
+          "w": 1200,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 720,
+          "w": 1200,
+          "h": 360
+        }
+      }
+    ],
+    "globalInputs": [
+      "snapshot",
+      "sport",
+      "gear",
+      "units",
+      "activity",
+      "telemetry",
+      "detail_mode"
+    ]
+  }
+}</definition></dashboard>
