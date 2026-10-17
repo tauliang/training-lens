@@ -39,6 +39,7 @@ Create an admin-owned `config.json` in `$SPLUNK_HOME/var/lib/training_lens/` bef
 ```json
 {
   "exact_gps": false,
+  "gear_thresholds": [{"gear": "Daily trainers", "distance_m": 600000}],
   "hr_zones": [
     {"effective_date": "2026-01-01", "boundaries": [120, 140, 160, 175]}
   ],

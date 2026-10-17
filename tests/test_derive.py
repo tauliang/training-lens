@@ -29,3 +29,11 @@ class PrivacyTests(unittest.TestCase):
         points=[point(i*10,i*1000,lat=40.001,lon=-74+i*.01) for i in range(4)]
         safe=privacy.cells(points,[{'latitude':40.009,'longitude':-73.981,'radius_m':100}],endpoint_mask_m=0)
         self.assertFalse(any(c['latitude']==40.005 and c['longitude']==-73.985 for c in safe))
+    def test_leading_unknown_distance_does_not_abort_valid_segment(self):
+        rows=[point(0,None),point(10,0),point(20,50),point(30,100)]
+        result=list(derive.derive_records(rows,{}, {'sport':'Run','timestamp':0,'duration_valid':1}))
+        self.assertEqual(len([r for r in result if r['kind']=='sample']),4)
+    def test_shared_cells_cannot_reintroduce_endpoint_buffer(self):
+        points=[point(i*10,i*85,lat=40,lon=-74+i*.001) for i in range(31)]
+        result=privacy.cells(points,[],endpoint_mask_m=200)
+        self.assertEqual(len(result),1)

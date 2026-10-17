@@ -64,3 +64,27 @@ class LifecycleTests(unittest.TestCase):
             goals=[json.loads(line) for chunk in result['chunks'] if '/goal/' in chunk['path'] for line in (root/'state'/chunk['path']).read_text().splitlines()]
             self.assertIn('progress_value',goals[0]);self.assertEqual(goals[0]['period_start'][5:],'01-01')
             with self.assertRaises(ValueError):ingest.import_archive(p,root/'other',decode=False,config={'goals':[{'sport':'Run','metric':'watts','target':10,'period':'year'}]})
+    def test_derived_revision_changes_with_sport_and_timezone(self):
+        from tests.test_streams import GPX
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);p=make_zip(root/'a.zip',payload=data(**{'7':'activities/track.gpx'}),extras={'activities/track.gpx':GPX})
+            one=ingest.import_archive(p,root/'s',timezone='UTC',config={'hr_zones':[100,130,150,170]})
+            def revision(manifest):
+                return next(json.loads(line)['stream_revision_id'] for c in manifest['chunks'] if '/membership/' in c['path'] for line in (root/'s'/c['path']).read_text().splitlines())
+            first=revision(one)
+            make_zip(p,payload=data(**{'3':'Ride','7':'activities/track.gpx'}),extras={'activities/track.gpx':GPX})
+            two=ingest.import_archive(p,root/'s',timezone='UTC',config={'hr_zones':[100,130,150,170]});self.assertNotEqual(first,revision(two))
+            three=ingest.import_archive(p,root/'s',timezone='America/New_York',config={'hr_zones':[100,130,150,170]});self.assertNotEqual(revision(two),revision(three))
+    def test_cli_worker_reports_rejected_archive_without_private_details(self):
+        import subprocess,sys
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);(root/'inbox').mkdir();make_zip(root/'inbox/a.zip',payload=b'wrong\nprivate-value\n')
+            ingest.scan(root,now=0,decode=False)
+            command=[sys.executable,str(Path(__file__).resolve().parents[1]/'build/training_lens/bin/import_strava.py'),'--state',str(root)]
+            result=subprocess.run(command,text=True,capture_output=True)
+            output=json.loads(result.stdout);self.assertEqual(output['status'],'failed');self.assertEqual(output['imports'],0);self.assertEqual(output['failures'],1);self.assertNotIn('private-value',result.stdout)
+    def test_gear_threshold_uses_valid_recorded_distance(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);p=make_zip(root/'a.zip');m=ingest.import_archive(p,root/'s',decode=False,config={'gear_thresholds':[{'gear':'Shoe','distance_m':60000}]})
+            gear=[json.loads(line) for c in m['chunks'] if '/gear_threshold/' in c['path'] for line in (root/'s'/c['path']).read_text().splitlines()]
+            self.assertEqual(len(gear),1);self.assertAlmostEqual(gear[0]['remaining_m'],53452.6)

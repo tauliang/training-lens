@@ -56,6 +56,9 @@ def _import(path,root,decode,timezone,athlete_id,config):
                         activity['csv_timestamp']=activity['timestamp'];activity['stream_timestamp']=first
                         if abs(first-activity['timestamp'])>30:activity['quality_flags'].append('timestamp_conflict')
                         activity['timestamp']=first;activity['time_basis']='stream_utc';activity.update(local_fields(first,timezone))
+                    context={k:activity.get(k) for k in ('sport','duration_valid','distance_valid','timestamp','local_date','local_week_start')}
+                    context['timezone']=timezone
+                    revision=hashlib.sha256((revision+json.dumps(context,sort_keys=True)).encode()).hexdigest()
                     telemetry=list(derive_records(raw_records,config,activity))
                     for ordinal,r in enumerate(telemetry):
                         r.update({'athlete_id':athlete_id,'activity_id':activity['activity_id'],'stream_revision_id':revision,'schema_version':1,'parser_version':PARSER_VERSION})
@@ -65,6 +68,7 @@ def _import(path,root,decode,timezone,athlete_id,config):
                 except (ValueError,KeyError,EOFError,OSError) as error:
                     if str(error)=='aggregate_decode_limit':raise
                     failures+=1;status='quarantined';activity['quality_flags'].append('stream_quarantined');revision=None
+            activity['comparison_month_day']=local_fields(epoch,timezone)['local_date'][5:]
             activity['stream_status']=status;activity['stream_revision_id']=revision or ''
             activity['flagged']=int(bool(activity['quality_flags']));activity['import_epoch']=epoch
             spool.add(activity);processed.append(activity)
@@ -92,7 +96,13 @@ def _import(path,root,decode,timezone,athlete_id,config):
             selected=[a for a in processed if a['sport']==goal.get('sport') and begin.isoformat()<=a['local_date']<=today.isoformat()]
             value=sum(1 if goal['metric']=='activity_count' else (a.get(goal['metric']) or 0) for a in selected if (goal['metric']!='distance_m' or a['distance_valid']) and (goal['metric']!='moving_time_s' or a['duration_valid']))
             item=base('goal');item.update({k:goal.get(k) for k in ('sport','metric','period')});item.update(target=target,event_id=sid+':goal:'+str(i),progress_value=value,progress_pct=round(100*value/target,1),period_start=begin.isoformat(),as_of=today.isoformat());spool.add(item)
-    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('exercise',0)+spool.counts.get('goal',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
+    for i,threshold in enumerate(config.get('gear_thresholds',[])):
+        from .csv_parser import number
+        target=number(threshold.get('distance_m'));gear=threshold.get('gear')
+        if not isinstance(gear,str) or not gear or target is None or target<=0:raise ValueError('invalid_gear_threshold')
+        recorded=sum(a['distance_m'] for a in processed if a['gear']==gear and a['distance_valid'])
+        item=base('gear_threshold');item.update(gear=gear,target_m=target,recorded_m=recorded,remaining_m=target-recorded,event_id=sid+':gear:'+str(i));spool.add(item)
+    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('exercise',0)+spool.counts.get('goal',0)+spool.counts.get('gear_threshold',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
     spool.add(record);chunks=spool.finish()
     manifest={'snapshot_id':sid,'import_epoch':epoch,'state':'emitted','counts':spool.counts,'chunks':chunks,'quarantined_streams':failures}
     write_json(manifest_path,manifest);return manifest

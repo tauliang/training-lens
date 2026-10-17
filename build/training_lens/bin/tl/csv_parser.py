@@ -9,7 +9,7 @@ import math
 import re
 from zoneinfo import ZoneInfo
 
-PARSER_VERSION='1.0.0'
+PARSER_VERSION='1.0.1'
 def number(value):
     try:
         n=float(str(value).replace(',',''))
@@ -45,7 +45,7 @@ def quality(record):
     if speed>limit:flags.append('distance_outlier');record['distance_valid']=0
     record['pace_valid']=int(record['distance_valid'] and record['duration_valid'] and bool(distance and distance>0))
     record['quality_flags']=sorted(set(flags));record['flagged']=int(bool(flags))
-    record['pace_min_km']=60*moving/distance if record['pace_valid'] else None
+    record['pace_min_km']=moving*1000/(60*distance) if record['pace_valid'] else None
     return record
 
 def parse_activities(csv_bytes, athlete_id, snapshot_id, timezone='UTC'):

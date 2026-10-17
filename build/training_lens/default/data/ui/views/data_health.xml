@@ -80,7 +80,7 @@
       "type": "ds.search",
       "name": "Pending and reconciled groups",
       "options": {
-        "query": "`tl_reconcile` | table snapshot_id groups matched expected_groups import_epoch",
+        "query": "`tl_reconciliation` | table snapshot_id groups matched expected_groups import_epoch",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"

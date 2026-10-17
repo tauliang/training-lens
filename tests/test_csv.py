@@ -29,3 +29,5 @@ class ParserTests(unittest.TestCase):
     def test_override_requires_known_field_and_valid_type(self):
         r=self.parse();fixed=csv_parser.apply_overrides(r,[{'activity_id':'1','field':'distance_m','value':'5000','reason':'device correction','revision':'1'}]);self.assertEqual(fixed['distance_m'],5000);self.assertEqual(r['distance_m'],6547.4)
         with self.assertRaises(ValueError):csv_parser.apply_overrides(r,[{'activity_id':'1','field':'activity_id','value':'2'}])
+    def test_pace_minutes_per_kilometer(self):
+        self.assertEqual(self.parse(**{'8':'1500','9':'1500','10':'5000'})['pace_min_km'],5)

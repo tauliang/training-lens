@@ -23,8 +23,10 @@ def main():
     kwargs={'decode':not args.summary_only and section.get('decode_streams','true').lower()=='true','timezone':section.get('timezone','UTC'),'athlete_id':section.get('athlete_id','personal'),'config':config}
     try:
         result=import_archive(args.archive,root,**kwargs) if args.archive else scan(root,**kwargs)
-        print(json.dumps({'timestamp':time.time(),'kind':'worker','status':'ok','imports':len(result) if isinstance(result,list) else 1,'event_id':'worker:'+str(time.time_ns())}))
-        return 0
+        failures=[r for r in result if r.get('state')=='failed'] if isinstance(result,list) else []
+        count=sum(r.get('state')!='failed' for r in result) if isinstance(result,list) else 1
+        print(json.dumps({'timestamp':time.time(),'kind':'worker','status':'failed' if failures else 'ok','imports':count,'failures':len(failures),'error_type':'archive_rejected' if failures else None,'event_id':'worker:'+str(time.time_ns())}))
+        return 1 if failures else 0
     except BlockingIOError:return 0
     except Exception as error:
         # Only a category is logged; parser exceptions may include private source values.

@@ -65,6 +65,9 @@ def _gpx(raw):
             if not values.get('time'):continue
             time=dt.datetime.fromisoformat(values['time'].replace('Z','+00:00'))
             if time.tzinfo is None:raise ValueError('gpx_timezone_required')
-            if previous:total+=distance(previous[0],previous[1],lat,lon)
-            yield {'kind':'sample','timestamp':time.timestamp(),'distance_m':total,'latitude':lat,'longitude':lon,'hr':number(values.get('hr')),'cadence':number(values.get('cad')),'altitude_m':number(values.get('ele')),'watts':number(values.get('power')),'speed_mps':None,'segment_start':int(previous is None)}
-            previous=(lat,lon)
+            speed=None
+            if previous:
+                delta=distance(previous[0],previous[1],lat,lon);total+=delta;gap=time.timestamp()-previous[2]
+                if 0<gap<=30 and delta/gap<=45:speed=delta/gap
+            yield {'kind':'sample','timestamp':time.timestamp(),'distance_m':total,'latitude':lat,'longitude':lon,'hr':number(values.get('hr')),'cadence':number(values.get('cad')),'altitude_m':number(values.get('ele')),'watts':number(values.get('power')),'speed_mps':speed,'segment_start':int(previous is None)}
+            previous=(lat,lon,time.timestamp())

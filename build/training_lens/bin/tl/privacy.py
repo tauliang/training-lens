@@ -23,12 +23,15 @@ def sanitize_track(points,zones,endpoint_mask_m=200):
     return segments
 
 def cells(points,zones,endpoint_mask_m=200):
-    result={}
+    result={};protected=list(zones)
+    valid=[p for p in points if _valid(p)]
+    if endpoint_mask_m>0 and valid:
+        protected.extend(dict(latitude=p['latitude'],longitude=p['longitude'],radius_m=endpoint_mask_m) for p in (valid[0],valid[-1]))
     for segment in sanitize_track(points,zones,endpoint_mask_m):
         for p in segment:
             lat=math.floor(p['latitude']*100)/100+.005;lon=math.floor(p['longitude']*100)/100+.005
             # Bounding-circle exclusion is conservative for the entire cell, including corners.
             radius=distance(lat,lon,lat+.005,lon+.005)
-            if any(distance(lat,lon,z['latitude'],z['longitude'])<=z['radius_m']+radius for z in zones):continue
+            if any(distance(lat,lon,z['latitude'],z['longitude'])<=z['radius_m']+radius for z in protected):continue
             key=(round(lat,3),round(lon,3));result[key]={'latitude':key[0],'longitude':key[1],'visits':1}
     return list(result.values())

@@ -27,3 +27,5 @@ class StreamTests(unittest.TestCase):
     def test_unknown_format_and_truncation(self):
         with self.assertRaises(ValueError):list(streams.decode_activity(b'abc','a.exe','r'))
         with self.assertRaises(ValueError):list(streams.decode_activity(fit_bytes()[:25],'a.fit','r'))
+    def test_gpx_speed_uses_observed_distance_and_time(self):
+        rows=list(streams.decode_activity(GPX,'a.gpx','r'));self.assertAlmostEqual(rows[1]['speed_mps'],11.1195,places=3)

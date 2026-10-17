@@ -20,9 +20,12 @@ def telemetry(kind,index='training_lens',detail=False):
     return 'index='+index+' sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+membership+' | appendpipe [ stats count | where count=0 | eval stream_revision_id="__none__" ] | fields stream_revision_id ] | dedup event_id'+(' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$")' if detail else TIME)
 
 VALID=' | where $quality_mode|s$!="Validated" OR (distance_valid=1 AND duration_valid=1)'
+DVALID=' | where $quality_mode|s$!="Validated" OR distance_valid=1'
+TVALID=' | where $quality_mode|s$!="Validated" OR duration_valid=1'
+GUARDS=' | eval distance_m=if($quality_mode|s$="Validated" AND distance_valid!=1,null(),distance_m), moving_time_s=if($quality_mode|s$="Validated" AND duration_valid!=1,null(),moving_time_s)'
 DIST=' | eval display_distance=distance_m/if($units|s$="Imperial",1609.344,1000)'
 ACT=base()
-RECENT=ACT+DIST+' | sort 0 - timestamp | head 100 | table activity_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags'
+RECENT=ACT+DIST+' | sort 0 - timestamp | head 100 | table activity_id snapshot_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags'
 PANELS={
 'overview':('Training Lens','Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.',[
  ('Activities','single',ACT+' | stats count AS Activities'),
@@ -30,26 +33,26 @@ PANELS={
  ('Distance (selected units)','single',ACT+' | where $quality_mode|s$!="Validated" OR distance_valid=1'+DIST+' | stats sum(display_distance) AS Distance | eval Distance=round(Distance,2)'),
  ('Flagged activities','single',ACT+' | stats count(eval(flagged=1)) AS Flagged'),
  ('Weekly moving hours by sport','column',ACT+' | where $quality_mode|s$!="Validated" OR duration_valid=1 | chart sum(moving_time_s) OVER local_week_start BY sport | foreach * [ eval <<FIELD>>=if(isnum(\'<<FIELD>>\'),round(\'<<FIELD>>\'/3600,2),\'<<FIELD>>\') ]'),
- ('Sport mix by moving hours','bar',ACT+' | stats sum(moving_time_s) AS seconds BY sport | eval hours=round(seconds/3600,2) | fields sport hours'),
- ('Same elapsed part of each year','column',base(time=False)+ ' | where tonumber(strftime(timestamp,"%j"))<=tonumber(strftime(now(),"%j")) | stats count AS activities BY local_year | sort local_year'),
+ ('Sport mix by moving hours','bar',ACT+TVALID+' | stats sum(moving_time_s) AS seconds BY sport | eval hours=round(seconds/3600,2) | fields sport hours'),
+ ('Annual comparison through import calendar date','column',base(time=False)+ ' | where substr(local_date,6,5)<=comparison_month_day | stats count AS activities BY local_year | sort local_year'),
  ('Coverage','table',ACT+' | stats count AS activities count(average_hr) AS with_hr count(relative_effort) AS with_effort count(eval(stream_status="decoded")) AS decoded_streams count(eval(stream_status="summary_only")) AS summary_only'),
  ('Recent activities — click to inspect','table',RECENT),
 ]),
 'training':('Training','Weekly activity, imported Relative Effort and confirmed custom heart-rate zones. Missing effort is unknown; no proprietary fitness or readiness score is inferred.',[
- ('Weekly activity log','table',ACT+' | stats count AS activities dc(local_date) AS active_days sum(moving_time_s) AS seconds sum(relative_effort) AS effort count(relative_effort) AS known_effort BY local_week_start | eval hours=round(seconds/3600,2), missing_effort=activities-known_effort | sort local_week_start'),
- ('Imported weekly effort and preceding four recorded weeks','line',ACT+' | stats sum(relative_effort) AS effort count AS activities count(relative_effort) AS known BY local_week_start | sort local_week_start | streamstats current=f window=4 avg(effort) AS preceding_recorded_weeks | eval effort=if(known=0,null(),effort) | fields local_week_start effort preceding_recorded_weeks'),
+ ('Weekly activity log','table',ACT+GUARDS+' | stats count AS activities dc(local_date) AS active_days sum(moving_time_s) AS seconds sum(relative_effort) AS effort count(relative_effort) AS known_effort BY local_week_start | eval hours=round(seconds/3600,2), missing_effort=activities-known_effort | sort local_week_start'),
+ ('Imported weekly effort and preceding four recorded weeks','line',ACT+' | stats sum(relative_effort) AS effort count AS activities count(relative_effort) AS known BY local_week_start | eval effort=if(known=0,null(),effort) | sort local_week_start | streamstats current=f window=4 avg(effort) AS preceding_recorded_weeks | fields local_week_start effort preceding_recorded_weeks'),
  ('HR-zone minutes — configure boundaries in config.json','column',telemetry('zone')+' | eval minutes=seconds/60 | chart sum(minutes) OVER local_week_start BY zone'),
  ('Observed versus unobserved HR time','table',telemetry('zone')+' | dedup activity_id | stats sum(observed_s) AS observed_seconds sum(unobserved_s) AS unobserved_seconds sum(paused_s) AS paused_seconds'),
  ('Configured goals — progress at import','table',base('goal',time=False,filters=False)+' | table sport metric target period period_start as_of progress_value progress_pct'),
  ('Effort coverage','table',ACT+' | stats count AS activities count(relative_effort) AS known_effort BY sport | eval coverage_pct=round(100*known_effort/activities,1)'),
 ]),
 'run_performance':('Run Performance','Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time.',[
- ('Running distance (selected units)','single',ACT+' | where sport="Run"'+VALID+DIST+' | stats sum(display_distance) AS Distance'),
+ ('Running distance (selected units)','single',ACT+' | where sport="Run"'+DVALID+DIST+' | stats sum(display_distance) AS Distance'),
  ('Distance-weighted pace (minutes per selected distance unit)','single',ACT+' | where sport="Run" AND pace_valid=1 | stats sum(moving_time_s) AS seconds sum(distance_m) AS meters | eval Pace=round(seconds*if($units|s$="Imperial",1609.344,1000)/(60*meters),2) | fields Pace'),
- ('Weekly running distance','column',ACT+' | where sport="Run"'+VALID+DIST+' | stats sum(display_distance) AS distance BY local_week_start | sort local_week_start'),
+ ('Weekly running distance','column',ACT+' | where sport="Run"'+DVALID+DIST+' | stats sum(display_distance) AS distance BY local_week_start | sort local_week_start'),
  ('Weekly distance-weighted pace','line',ACT+' | where sport="Run" AND pace_valid=1 | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_week_start | eval pace=seconds*if($units|s$="Imperial",1609.344,1000)/(60*meters) | fields local_week_start pace | sort local_week_start'),
  ('App-derived best efforts','table',telemetry('best_effort')+' | stats min(duration_s) AS elapsed_seconds BY target_m | sort target_m'),
- ('Comparable runs','table',ACT+' | where sport="Run" AND pace_valid=1 | eval distance_km=round(distance_m/1000,2), pace_min_km=round(pace_min_km,2) | table activity_id local_date distance_km pace_min_km average_hr elevation_gain_m grade_adjusted_pace'),
+ ('Comparable runs','table',ACT+' | where sport="Run" AND pace_valid=1 | eval distance_km=round(distance_m/1000,2), pace_min_km=round(pace_min_km,2) | table activity_id snapshot_id local_date distance_km pace_min_km average_hr elevation_gain_m grade_adjusted_pace'),
 ]),
 'activity_detail':('Activity Detail','Select an activity from Overview or enter its numeric Strava ID. Missing-stream activities retain summaries. Zone charts require configured boundaries; no power curve is inferred from average watts.',[
  ('Activity summary','table',base(time=False,filters=False)+' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$") | table activity_id local_date activity_name sport distance_m moving_time_s elapsed_time_s average_hr relative_effort gear stream_status quality_flags'),
@@ -68,14 +71,15 @@ PANELS={
  ('Geography coverage by sport','bar',telemetry('geography',index='training_lens_shared')+' | stats dc(activity_id) AS mapped_activities BY sport'),
 ]),
 'gear_sports':('Gear and Sports','Recorded gear usage can be incomplete. Names are preserved; correct aliases through overrides. No combined pace is calculated across sports.',[
- ('Recorded gear usage','table',ACT+VALID+DIST+' | stats count AS activities sum(display_distance) AS distance sum(moving_time_s) AS seconds BY gear sport | eval hours=round(seconds/3600,2) | fields gear sport activities distance hours'),
- ('Gear distance by month','column',ACT+VALID+DIST+' | chart sum(display_distance) OVER local_month BY gear'),
+ ('Recorded gear usage','table',ACT+GUARDS+DIST+' | stats count AS activities sum(display_distance) AS distance sum(moving_time_s) AS seconds BY gear sport | eval hours=round(seconds/3600,2) | fields gear sport activities distance hours'),
+ ('Gear distance by month','column',ACT+DVALID+DIST+' | chart sum(display_distance) OVER local_month BY gear'),
+ ('Equipment thresholds — recorded lifetime mileage','table',base('gear_threshold',time=False,filters=False)+' | table gear target_m recorded_m remaining_m'),
  ('Strength sessions','table',ACT+' | where sport="Weight Training" | table activity_id local_date moving_time_s average_hr sets reps'),
- ('Sport summaries','table',ACT+' | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m'),
+ ('Sport summaries','table',ACT+GUARDS+' | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m'),
 ]),
 'data_health':('Data Health','An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.',[
  ('Active snapshot','table','index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
- ('Pending and reconciled groups','table','`tl_reconcile` | table snapshot_id groups matched expected_groups import_epoch'),
+ ('Pending and reconciled groups','table','`tl_reconciliation` | table snapshot_id groups matched expected_groups import_epoch'),
  ('Recent worker status','table','index=training_lens_ops sourcetype=training_lens:worker earliest=-7d | sort 0 - _time | head 20 | table _time status imports error_type'),
  ('Quality issues','table',base(time=False,filters=False)+' | where flagged=1 | table activity_id local_date sport quality_flags distance_m moving_time_s elapsed_time_s raw_relative_effort relative_effort'),
  ('Completeness by year and sport','table',base(time=False,filters=False)+' | stats count AS activities count(average_hr) AS hr count(relative_effort) AS effort count(eval(stream_status="decoded")) AS decoded BY local_year sport'),
@@ -99,7 +103,7 @@ def generate():
             doc['dataSources'][ds]={'type':'ds.search','name':label,'options':{'query':query,'queryParameters':{'earliest':'0','latest':'+10y'}}}
             visual={'type':'splunk.singlevalue' if kind=='single' else 'splunk.'+kind,'title':label,'dataSources':{'primary':ds},'options':{},'showProgressBar':True,'showLastUpdated':True}
             if kind=='map':visual['options']={'layers':[{'type':'bubble','latitude':'> primary | seriesByName("latitude")','longitude':'> primary | seriesByName("longitude")','bubbleSize':'> primary | seriesByName("visits")'}]}
-            if label.startswith('Recent activities') or label=='Comparable runs':visual['eventHandlers']=[{'type':'drilldown.linkToDashboard','options':{'app':'training_lens','dashboard':'activity_detail','tokens':[{'token':'activity_id','value':'row.activity_id.value'}],'newTab':False}}]
+            if label.startswith('Recent activities') or label=='Comparable runs':visual['eventHandlers']=[{'type':'drilldown.linkToDashboard','options':{'app':'training_lens','dashboard':'activity_detail','tokens':[{'token':'activity_id','value':'row.activity_id.value'},{'token':'snapshot','value':'row.snapshot_id.value'}],'newTab':False}}]
             doc['visualizations'][viz]=visual
             # One clear panel per row in grid for portability; single-value pairs share the first rows.
             single=kind=='single';w=600 if single else 1200;h=150 if single else 300

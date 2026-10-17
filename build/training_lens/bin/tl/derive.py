@@ -84,7 +84,7 @@ def derive_records(records,config,activity):
     if activity['sport']=='Run' and activity.get('duration_valid'):
         for row in best_efforts(samples,[1000,1609.344,5000,10000,21097.5,42195],max_speed=12):yield row
         segments=_segments(samples,max_speed=12)
-        if len(segments)==1 and len(samples)>1:
+        if len(segments)==1 and len(segments[0])==len(samples) and len(samples)>1:
             ds=[p['distance_m'] for p in samples];ts=[p['timestamp'] for p in samples];previous=ts[0]
             for km in range(1,int((ds[-1]-ds[0])/1000)+1):
                 end=_time_at(ds,ts,ds[0]+1000*km)
