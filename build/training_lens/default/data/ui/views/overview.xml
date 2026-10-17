@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
-<dashboard version="2" theme="light"><label>Training Lens</label><description>Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.</description><definition>{
+<dashboard version="2" theme="light"><label>Training Lens</label><description>Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons. Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date.</description><definition>{
   "title": "Training Lens",
-  "description": "Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.",
+  "description": "Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons. Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date.",
   "visualizations": {
     "viz_0": {
       "type": "splunk.singlevalue",
@@ -74,8 +74,8 @@
       "showLastUpdated": true
     },
     "viz_7": {
-      "type": "splunk.table",
-      "title": "Coverage",
+      "type": "splunk.column",
+      "title": "Annual activities by sport \u2014 all years",
       "dataSources": {
         "primary": "ds_7"
       },
@@ -85,9 +85,29 @@
     },
     "viz_8": {
       "type": "splunk.table",
-      "title": "Recent activities \u2014 click to inspect",
+      "title": "Annual activity changes by sport \u2014 all years",
       "dataSources": {
         "primary": "ds_8"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_9": {
+      "type": "splunk.table",
+      "title": "Coverage",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_10": {
+      "type": "splunk.table",
+      "title": "Recent activities \u2014 click to inspect",
+      "dataSources": {
+        "primary": "ds_10"
       },
       "options": {},
       "showProgressBar": true,
@@ -194,6 +214,28 @@
     },
     "ds_7": {
       "type": "ds.search",
+      "name": "Annual activities by sport \u2014 all years",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | chart count OVER local_year BY sport limit=0 useother=f usenull=f | makecontinuous local_year span=1 | fillnull value=0",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_8": {
+      "type": "ds.search",
+      "name": "Annual activity changes by sport \u2014 all years",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | chart count OVER local_year BY sport limit=0 useother=f usenull=f | makecontinuous local_year span=1 | fillnull value=0 | untable local_year sport activities | sort 0 sport local_year | streamstats current=f window=1 last(activities) AS previous_year_activities BY sport | eval change_activities=activities-previous_year_activities, yoy_pct=if(previous_year_activities&gt;0,round(100*change_activities/previous_year_activities,1),null()) | table local_year sport activities previous_year_activities change_activities yoy_pct",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_9": {
+      "type": "ds.search",
       "name": "Coverage",
       "options": {
         "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats count AS activities count(average_hr) AS with_hr count(relative_effort) AS with_effort count(eval(stream_status=\"decoded\")) AS decoded_streams count(eval(stream_status=\"summary_only\")) AS summary_only",
@@ -203,7 +245,7 @@
         }
       }
     },
-    "ds_8": {
+    "ds_10": {
       "type": "ds.search",
       "name": "Recent activities \u2014 click to inspect",
       "options": {
@@ -337,6 +379,24 @@
         "token": "snapshot",
         "defaultValue": "latest"
       }
+    },
+    "history": {
+      "type": "input.dropdown",
+      "title": "Annual panels (ignore Period)",
+      "options": {
+        "token": "history_scope",
+        "defaultValue": "Full years",
+        "items": [
+          {
+            "label": "Full years",
+            "value": "Full years"
+          },
+          {
+            "label": "Comparable YTD",
+            "value": "Comparable YTD"
+          }
+        ]
+      }
     }
   },
   "layout": {
@@ -432,6 +492,26 @@
           "w": 1200,
           "h": 300
         }
+      },
+      {
+        "item": "viz_9",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1800,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2100,
+          "w": 1200,
+          "h": 300
+        }
       }
     ],
     "globalInputs": [
@@ -440,7 +520,8 @@
       "gear",
       "quality",
       "units",
-      "snapshot"
+      "snapshot",
+      "history"
     ]
   }
 }</definition></dashboard>

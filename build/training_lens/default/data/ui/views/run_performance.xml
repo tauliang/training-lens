@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
-<dashboard version="2" theme="light"><label>Run Performance</label><description>Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time.</description><definition>{
+<dashboard version="2" theme="light"><label>Run Performance</label><description>Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time. Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date. Pace is minutes/km or minutes/mile. Confirm CSV cadence units to show steps/min: strides are doubled; existing steps are unchanged. Cadence is weighted by recorded moving duration.</description><definition>{
   "title": "Run Performance",
-  "description": "Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time.",
+  "description": "Compare like runs by distance and terrain. Pace is distance-weighted. Best efforts are derived from continuous time-distance streams and include elapsed pause time. Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date. Pace is minutes/km or minutes/mile. Confirm CSV cadence units to show steps/min: strides are doubled; existing steps are unchanged. Cadence is weighted by recorded moving duration.",
   "visualizations": {
     "viz_0": {
       "type": "splunk.singlevalue",
@@ -44,8 +44,8 @@
       "showLastUpdated": true
     },
     "viz_4": {
-      "type": "splunk.table",
-      "title": "App-derived best efforts",
+      "type": "splunk.column",
+      "title": "Annual running distance \u2014 all years",
       "dataSources": {
         "primary": "ds_4"
       },
@@ -54,10 +54,54 @@
       "showLastUpdated": true
     },
     "viz_5": {
+      "type": "splunk.line",
+      "title": "Annual running pace (min/km or min/mile) \u2014 all years",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_6": {
+      "type": "splunk.line",
+      "title": "Annual running cadence (steps/min) \u2014 confirm source units",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_7": {
+      "type": "splunk.table",
+      "title": "Annual running metric coverage \u2014 all years",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_8": {
+      "type": "splunk.table",
+      "title": "App-derived best efforts",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_9": {
       "type": "splunk.table",
       "title": "Comparable runs",
       "dataSources": {
-        "primary": "ds_5"
+        "primary": "ds_9"
       },
       "options": {},
       "showProgressBar": true,
@@ -131,6 +175,50 @@
     },
     "ds_4": {
       "type": "ds.search",
+      "name": "Annual running distance \u2014 all years",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | where sport=\"Run\" | where $quality_mode|s$!=\"Validated\" OR distance_valid=1 | eval display_distance=distance_m/if($units|s$=\"Imperial\",1609.344,1000) | stats sum(display_distance) AS distance BY local_year | sort local_year",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_5": {
+      "type": "ds.search",
+      "name": "Annual running pace (min/km or min/mile) \u2014 all years",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | where sport=\"Run\" | where pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0 | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_year | eval pace=round(seconds*if($units|s$=\"Imperial\",1609.344,1000)/(60*meters),3) | fields local_year pace | sort local_year | makecontinuous local_year span=1",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_6": {
+      "type": "ds.search",
+      "name": "Annual running cadence (steps/min) \u2014 confirm source units",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | where sport=\"Run\" | where duration_valid=1 AND moving_time_s&gt;0 AND average_cadence&gt;0 | eval cadence_factor=case($cadence_units|s$=\"Strides/min\",2,$cadence_units|s$=\"Steps/min\",1,true(),null()) | where isnotnull(cadence_factor) | eval cadence_seconds=average_cadence*cadence_factor*moving_time_s | stats sum(cadence_seconds) AS cadence_seconds sum(moving_time_s) AS seconds BY local_year | eval steps_per_minute=round(cadence_seconds/seconds,2) | fields local_year steps_per_minute | sort local_year | makecontinuous local_year span=1",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_7": {
+      "type": "ds.search",
+      "name": "Annual running metric coverage \u2014 all years",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $history_scope|s$!=\"Comparable YTD\" OR substr(local_date,6,5)&lt;=comparison_month_day | where sport=\"Run\" | eval cadence_factor=case($cadence_units|s$=\"Strides/min\",2,$cadence_units|s$=\"Steps/min\",1,true(),null()) | eval pace_ok=if(pace_valid=1 AND distance_m&gt;0 AND moving_time_s&gt;0,1,0), cadence_ok=if(duration_valid=1 AND moving_time_s&gt;0 AND average_cadence&gt;0 AND isnotnull(cadence_factor),1,0) | stats count AS activities sum(pace_ok) AS pace_activities sum(cadence_ok) AS cadence_activities BY local_year | eval cadence_coverage_pct=round(100*cadence_activities/activities,1), pace_coverage_pct=round(100*pace_activities/activities,1) | sort local_year",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_8": {
+      "type": "ds.search",
       "name": "App-derived best efforts",
       "options": {
         "query": "index=training_lens sourcetype=training_lens:best_effort earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | stats min(duration_s) AS elapsed_seconds BY target_m | sort target_m",
@@ -140,7 +228,7 @@
         }
       }
     },
-    "ds_5": {
+    "ds_9": {
       "type": "ds.search",
       "name": "Comparable runs",
       "options": {
@@ -274,6 +362,46 @@
         "token": "snapshot",
         "defaultValue": "latest"
       }
+    },
+    "history": {
+      "type": "input.dropdown",
+      "title": "Annual panels (ignore Period)",
+      "options": {
+        "token": "history_scope",
+        "defaultValue": "Full years",
+        "items": [
+          {
+            "label": "Full years",
+            "value": "Full years"
+          },
+          {
+            "label": "Comparable YTD",
+            "value": "Comparable YTD"
+          }
+        ]
+      }
+    },
+    "cadence": {
+      "type": "input.dropdown",
+      "title": "CSV cadence convention",
+      "options": {
+        "token": "cadence_units",
+        "defaultValue": "Unconfirmed",
+        "items": [
+          {
+            "label": "Unconfirmed",
+            "value": "Unconfirmed"
+          },
+          {
+            "label": "Strides/min",
+            "value": "Strides/min"
+          },
+          {
+            "label": "Steps/min",
+            "value": "Steps/min"
+          }
+        ]
+      }
     }
   },
   "layout": {
@@ -339,6 +467,46 @@
           "w": 1200,
           "h": 300
         }
+      },
+      {
+        "item": "viz_6",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1350,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_7",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1650,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_8",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1950,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_9",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2250,
+          "w": 1200,
+          "h": 300
+        }
       }
     ],
     "globalInputs": [
@@ -347,7 +515,9 @@
       "gear",
       "quality",
       "units",
-      "snapshot"
+      "snapshot",
+      "history",
+      "cadence"
     ]
   }
 }</definition></dashboard>

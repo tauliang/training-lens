@@ -6,7 +6,7 @@ The release was tested on Splunk Enterprise **10.0.11** and **10.4.4**, using is
 |---|---|
 | Python unit/integration suite | 40 tests passing on local Python 3.13 and Splunk 10.0's bundled Python 3.9 |
 | Full private export | Strict FIT CRC decoding; source summary totals, samples and laps match the independent analysis baseline; no quarantined streams |
-| Installed dashboard searches | All 46 panel searches pass strict search-job error checks on both tested Enterprise versions |
+| Baseline installed dashboard searches | All 46 original panel searches pass strict search-job error checks on both tested Enterprise versions |
 | Browser | All eight Studio pages render without query errors or JavaScript page errors on 10.0.11 |
 | Quality modes | Real SPL fixtures prove that distance and duration guards are independent, with paired validity for pace |
 | Scheduled input | 10.4.4's bundled Python 3.13 imported a synthetic ZIP after stable observations; native scheduled reconciliation activated it |
@@ -34,3 +34,17 @@ The first QEMU-based test crashed the native Splunk indexer. Rosetta-based conta
 Existing wildcard index permissions remain an administrator responsibility: Splunk role grants are additive. The supplied custom roles have no built-in wildcard inheritance, but adding one to an already broadly privileged user cannot remove that user's existing rights.
 
 Optional features outside this release remain documented in the installation guide: proprietary load-model parity, measured-power inference, community leaderboards, API synchronization, custom calendar/route-matching components and automatic shared-dashboard publication.
+
+## Annual trend update — 2026-10-17
+
+Nine panels were added within Overview, Run Performance, and Gear and Sports. The dashboard count remains eight. The original 10.0.11 baseline was not rerun for this update; fresh runtime evidence is on Enterprise **10.4.4**.
+
+- 40 unit/integration tests pass on local Python 3.13.
+- All **55 installed panel searches** pass strict job-error checks against 219 synthetic workouts spanning 2022–2026.
+- **17 live SPL fixture checks** validate annual sport counts, zero-activity years, year-over-year zero denominators, duration/distance weighting, MPH/km/h, min/mile/min/km, both cadence conventions, unconfirmed units, coverage, missing-year gaps, comparable YTD, gear/sport filters and escaped hostile filter text. Reproduce with `tools/verify_historical_trends.py`.
+- All three changed dashboards render in Chrome without dashboard definition errors, SPL error text, or JavaScript page errors. Synthetic screenshots are in `screenshots/demo/*_annual.png`.
+- The rebuilt package passes AppInspect 4.3.1 precert with zero errors and zero current failures; the existing Python runtime future finding and seven warnings remain. `dist/appinspect-report.json` was regenerated for this package.
+
+The first all-panel API run overlapped with browser searches and reached the disposable instance's ten-concurrent-history-search limit (HTTP 503). Running verification separately passed every panel. Dashboard requests were queued by Splunk and rendered. Budget search concurrency for larger deployments; no global limits were changed.
+
+Cadence normalization deliberately starts unconfirmed. Users choose the CSV convention before the steps/minute chart renders. Skiing charts measure whole-activity moving speed, including recorded lift/traverse movement, rather than a descent-only metric. Coverage counts accompany the annual trends.

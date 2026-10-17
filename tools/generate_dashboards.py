@@ -30,6 +30,14 @@ TVALID=' | where $quality_mode|s$!="Validated" OR duration_valid=1'
 GUARDS=' | eval distance_m=if($quality_mode|s$="Validated" AND distance_valid!=1,null(),distance_m), moving_time_s=if($quality_mode|s$="Validated" AND duration_valid!=1,null(),moving_time_s)'
 DIST=' | eval display_distance=distance_m/if($units|s$="Imperial",1609.344,1000)'
 ACT=base()
+# Yearly panels deliberately use the complete selected snapshot. Other panels
+# retain the Period filter. Comparable YTD is anchored to the import's date.
+HISTORY=base(time=False)+' | where $history_scope|s$!="Comparable YTD" OR substr(local_date,6,5)<=comparison_month_day'
+YEAR_COUNTS=HISTORY+' | chart count OVER local_year BY sport limit=0 useother=f usenull=f | makecontinuous local_year span=1 | fillnull value=0'
+YEAR_SPEED=HISTORY+' | where pace_valid=1 AND distance_m>0 AND moving_time_s>0'
+CADENCE=' | eval cadence_factor=case($cadence_units|s$="Strides/min",2,$cadence_units|s$="Steps/min",1,true(),null())'
+YEAR_RUN=HISTORY+' | where sport="Run"'
+YEAR_CADENCE=YEAR_RUN+' | where duration_valid=1 AND moving_time_s>0 AND average_cadence>0'+CADENCE+' | where isnotnull(cadence_factor) | eval cadence_seconds=average_cadence*cadence_factor*moving_time_s'
 RECENT=ACT+DIST+' | sort 0 - timestamp | head 100 | table activity_id snapshot_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags'
 PANELS={
 'overview':('Training Lens','Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.',[
@@ -40,6 +48,8 @@ PANELS={
  ('Weekly moving hours by sport','column',ACT+' | where $quality_mode|s$!="Validated" OR duration_valid=1 | chart sum(moving_time_s) OVER local_week_start BY sport | foreach * [ eval <<FIELD>>=if(isnum(\'<<FIELD>>\'),round(\'<<FIELD>>\'/3600,2),\'<<FIELD>>\') ]'),
  ('Sport mix by moving hours','bar',ACT+TVALID+' | stats sum(moving_time_s) AS seconds BY sport | eval hours=round(seconds/3600,2) | fields sport hours'),
  ('Annual comparison through import calendar date','column',base(time=False)+ ' | where substr(local_date,6,5)<=comparison_month_day | stats count AS activities BY local_year | sort local_year'),
+ ('Annual activities by sport — all years','column',YEAR_COUNTS),
+ ('Annual activity changes by sport — all years','table',YEAR_COUNTS+' | untable local_year sport activities | sort 0 sport local_year | streamstats current=f window=1 last(activities) AS previous_year_activities BY sport | eval change_activities=activities-previous_year_activities, yoy_pct=if(previous_year_activities>0,round(100*change_activities/previous_year_activities,1),null()) | table local_year sport activities previous_year_activities change_activities yoy_pct'),
  ('Coverage','table',ACT+' | stats count AS activities count(average_hr) AS with_hr count(relative_effort) AS with_effort count(eval(stream_status="decoded")) AS decoded_streams count(eval(stream_status="summary_only")) AS summary_only'),
  ('Recent activities — click to inspect','table',RECENT),
 ]),
@@ -56,6 +66,10 @@ PANELS={
  ('Distance-weighted pace (minutes per selected distance unit)','single',ACT+' | where sport="Run" AND pace_valid=1 | stats sum(moving_time_s) AS seconds sum(distance_m) AS meters | eval Pace=round(seconds*if($units|s$="Imperial",1609.344,1000)/(60*meters),2) | fields Pace'),
  ('Weekly running distance','column',ACT+' | where sport="Run"'+DVALID+DIST+' | stats sum(display_distance) AS distance BY local_week_start | sort local_week_start'),
  ('Weekly distance-weighted pace','line',ACT+' | where sport="Run" AND pace_valid=1 | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_week_start | eval pace=seconds*if($units|s$="Imperial",1609.344,1000)/(60*meters) | fields local_week_start pace | sort local_week_start'),
+ ('Annual running distance — all years','column',YEAR_RUN+DVALID+DIST+' | stats sum(display_distance) AS distance BY local_year | sort local_year'),
+ ('Annual running pace (min/km or min/mile) — all years','line',YEAR_RUN+' | where pace_valid=1 AND distance_m>0 AND moving_time_s>0 | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_year | eval pace=round(seconds*if($units|s$="Imperial",1609.344,1000)/(60*meters),3) | fields local_year pace | sort local_year | makecontinuous local_year span=1'),
+ ('Annual running cadence (steps/min) — confirm source units','line',YEAR_CADENCE+' | stats sum(cadence_seconds) AS cadence_seconds sum(moving_time_s) AS seconds BY local_year | eval steps_per_minute=round(cadence_seconds/seconds,2) | fields local_year steps_per_minute | sort local_year | makecontinuous local_year span=1'),
+ ('Annual running metric coverage — all years','table',YEAR_RUN+CADENCE+' | eval pace_ok=if(pace_valid=1 AND distance_m>0 AND moving_time_s>0,1,0), cadence_ok=if(duration_valid=1 AND moving_time_s>0 AND average_cadence>0 AND isnotnull(cadence_factor),1,0) | stats count AS activities sum(pace_ok) AS pace_activities sum(cadence_ok) AS cadence_activities BY local_year | eval cadence_coverage_pct=round(100*cadence_activities/activities,1), pace_coverage_pct=round(100*pace_activities/activities,1) | sort local_year'),
  ('App-derived best efforts','table',telemetry('best_effort')+' | stats min(duration_s) AS elapsed_seconds BY target_m | sort target_m'),
  ('Comparable runs','table',ACT+' | where sport="Run" AND pace_valid=1 | eval distance_km=round(distance_m/1000,2), pace_min_km=round(pace_min_km,2) | table activity_id snapshot_id local_date distance_km pace_min_km average_hr elevation_gain_m grade_adjusted_pace'),
 ]),
@@ -78,6 +92,9 @@ PANELS={
 'gear_sports':('Gear and Sports','Recorded gear usage can be incomplete. Names are preserved; correct aliases through overrides. No combined pace is calculated across sports.',[
  ('Recorded gear usage','table',ACT+GUARDS+DIST+' | stats count AS activities sum(display_distance) AS distance sum(moving_time_s) AS seconds BY gear sport | eval hours=round(seconds/3600,2) | fields gear sport activities distance hours'),
  ('Gear distance by month','column',ACT+DVALID+DIST+' | chart sum(display_distance) OVER local_month BY gear'),
+ ('Annual skiing moving speed (km/h or MPH) — includes lifts if recorded','line',YEAR_SPEED+' | where sport IN ("Alpine Ski","Backcountry Ski","Nordic Ski","AlpineSki","BackcountrySki","NordicSki","Snowboard") | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_year sport | eval speed=round(meters/seconds*if($units|s$="Imperial",2.2369362920544,3.6),2) | xyseries local_year sport speed | sort local_year | makecontinuous local_year span=1'),
+ ('Annual moving speed by sport (km/h or MPH) — all years','line',YEAR_SPEED+' | stats sum(distance_m) AS meters sum(moving_time_s) AS seconds BY local_year sport | eval speed=round(meters/seconds*if($units|s$="Imperial",2.2369362920544,3.6),2) | xyseries local_year sport speed | sort local_year | makecontinuous local_year span=1'),
+ ('Annual sport metric coverage — all years','table',HISTORY+' | eval speed_ok=if(pace_valid=1 AND distance_m>0 AND moving_time_s>0,1,0), valid_meters=if(speed_ok=1,distance_m,null()), valid_seconds=if(speed_ok=1,moving_time_s,null()) | stats count AS activities sum(speed_ok) AS speed_activities sum(valid_meters) AS meters sum(valid_seconds) AS seconds BY local_year sport | eval speed_coverage_pct=round(100*speed_activities/activities,1), speed=if(speed_activities>0,round(meters/seconds*if($units|s$="Imperial",2.2369362920544,3.6),2),null()), speed_unit=if($units|s$="Imperial","MPH","km/h") | table local_year sport activities speed_activities speed_coverage_pct speed speed_unit | sort 0 sport local_year'),
  ('Equipment thresholds — recorded lifetime mileage','table',base('gear_threshold',time=False,filters=False)+' | table gear target_m recorded_m remaining_m'),
  ('Strength sessions','table',ACT+' | where sport="Weight Training" | table activity_id local_date moving_time_s average_hr sets reps'),
  ('Sport summaries','table',ACT+GUARDS+' | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m'),
@@ -101,12 +118,22 @@ def generate():
     for name,(title,description,panels) in PANELS.items():
         doc={'title':title,'description':description,'visualizations':{},'dataSources':{},'inputs':{'time':{'type':'input.timerange','title':'Period','options':{'token':'time','defaultValue':'-1y,now'}},'sport':dropdown('sport','Sport',['All','Run','Ride','Hike','Alpine Ski','Weight Training','Workout','Walk','Swim','Nordic Ski','Backcountry Ski','Kayaking'],'All'),'gear':{'type':'input.text','title':'Gear (exact name or All)','options':{'token':'gear','defaultValue':'All'}},'quality':dropdown('quality_mode','Quality',['Validated','Reported','Flagged only'],'Validated'),'units':dropdown('units','Units',['Metric','Imperial'],'Metric'),'snapshot':{'type':'input.text','title':'Snapshot (latest or ID)','options':{'token':'snapshot','defaultValue':'latest'}}},'layout':{'type':'grid','options':{},'structure':[],'globalInputs':['time','sport','gear','quality','units','snapshot']}}
         if name=='activity_detail':doc['inputs']['activity']={'type':'input.text','title':'Activity ID','options':{'token':'activity_id','defaultValue':'none'}};doc['layout']['globalInputs'].append('activity')
+        if name in ('overview','run_performance','gear_sports'):
+            doc['inputs']['history']=dropdown('history_scope','Annual panels (ignore Period)',['Full years','Comparable YTD'],'Full years')
+            doc['layout']['globalInputs'].append('history')
+            doc['description']+=' Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date.'
+        if name=='run_performance':
+            doc['inputs']['cadence']=dropdown('cadence_units','CSV cadence convention',['Unconfirmed','Strides/min','Steps/min'],'Unconfirmed')
+            doc['layout']['globalInputs'].append('cadence')
+            doc['description']+=' Pace is minutes/km or minutes/mile. Confirm CSV cadence units to show steps/min: strides are doubled; existing steps are unchanged. Cadence is weighted by recorded moving duration.'
+        if name=='gear_sports':doc['description']+=' Annual speed is distance divided by moving time, in km/h or MPH. Skiing summaries do not isolate descents from lifts or traverses.'
         y=0
         for i,(label,kind,query) in enumerate(panels):
             ds='ds_'+str(i);viz='viz_'+str(i)
             query=query.replace('$SPLUNK_HOME','SPLUNK_HOME')
             doc['dataSources'][ds]={'type':'ds.search','name':label,'options':{'query':query,'queryParameters':{'earliest':'0','latest':'+10y'}}}
             visual={'type':'splunk.singlevalue' if kind=='single' else 'splunk.'+kind,'title':label,'dataSources':{'primary':ds},'options':{},'showProgressBar':True,'showLastUpdated':True}
+            if name in ('run_performance','gear_sports') and label.startswith('Annual') and kind=='line':visual['options']={'nullValueDisplay':'gaps'}
             if kind=='map':visual['options']={'layers':[{'type':'bubble','latitude':'> primary | seriesByName("latitude")','longitude':'> primary | seriesByName("longitude")','bubbleSize':'> primary | seriesByName("visits")'}]}
             if label.startswith('Recent activities') or label=='Comparable runs':visual['eventHandlers']=[{'type':'drilldown.linkToDashboard','options':{'app':'training_lens','dashboard':'activity_detail','tokens':[{'token':'activity_id','value':'row.activity_id.value'},{'token':'snapshot','value':'row.snapshot_id.value'}],'newTab':False}}]
             doc['visualizations'][viz]=visual
@@ -115,7 +142,7 @@ def generate():
             x=600 if single and i%2 else 0
             doc['layout']['structure'].append({'item':viz,'type':'block','position':{'x':x,'y':y,'w':w,'h':h}})
             if not single or i%2 or i==len(panels)-1 or panels[i+1][1]!='single':y+=h
-        root=ET.Element('dashboard',version='2',theme='light');ET.SubElement(root,'label').text=title;ET.SubElement(root,'description').text=description;ET.SubElement(root,'definition').text=json.dumps(doc,indent=2)
+        root=ET.Element('dashboard',version='2',theme='light');ET.SubElement(root,'label').text=title;ET.SubElement(root,'description').text=doc['description'];ET.SubElement(root,'definition').text=json.dumps(doc,indent=2)
         views=ROOT/'views';views.mkdir(parents=True,exist_ok=True);ET.ElementTree(root).write(views/(name+'.xml'),encoding='utf-8',xml_declaration=True)
     nav=ET.Element('nav',search_view='search',color='#ED6A27')
     for name,(title,_,_) in PANELS.items():ET.SubElement(nav,'view',name=name,default='true' if name=='overview' else 'false')

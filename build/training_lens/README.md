@@ -86,3 +86,13 @@ To pause imports, disable the script input. To roll back dashboards, reinstall t
 ## License
 
 Apache-2.0 for Training Lens; fitdecode 0.11.0 is MIT licensed. See THIRD_PARTY_LICENSES and the bundled full license. Training Lens is independent and is not affiliated with Strava or Splunk.
+
+## Annual history panels
+
+Overview includes annual counts and year-over-year activity changes by sport. Run Performance includes annual distance, distance-weighted pace, duration-weighted cadence and coverage. Gear and Sports includes yearly skiing speed, speed by sport and coverage. The app still has eight dashboards.
+
+Annual panels use all years in the selected snapshot, independent of Period; Sport and Gear still apply. The annual comparison selector switches between Full years (latest year can be incomplete) and Comparable YTD through the import calendar date. Coverage tables count excluded or missing metric observations; absent cadence/speed is never zero-filled. Activity count charts include inactive calendar years between the first and last observed years; growth from zero has no percentage. The annual metric calculations always require valid durations and, for speed/pace, valid distances, including in Reported mode.
+
+Set CSV cadence convention in Run Performance after checking the source: Strides/min × 2 or Steps/min × 1. Unconfirmed is the default, so the normalized chart starts empty. This choice affects the annual summary chart, not raw device cadence in Activity Detail. The exported activity mean is weighted by its recorded moving duration, which approximates cadence over covered activities, not measured time at each step. If historical sources use different conventions, normalize them before applying one convention to the selected history.
+
+Speed uses summed distance / summed moving time within each sport/year, in MPH or km/h. Skiing summaries include recorded lifts/traverses; the app does not claim downhill-only speed or infer peak speed from averages. Metric lines have gaps for years without a measurement.

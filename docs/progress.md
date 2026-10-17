@@ -45,3 +45,9 @@ Final time-filter regression: Splunk pre-evaluates invalid constant tonumber arg
 Final review fixes: no deferred reviewer findings. Public deliverables omit personal source rows, activity statistics, locations, private screenshots, runtime credentials and raw exports.
 
 Final retention regression: readiness markers now live in the historical data index, not the 90-day operations index. A RED→GREEN configuration contract ensures the active snapshot cannot disappear merely because operational logs age out.
+
+## Annual trends in existing dashboards
+
+Added annual activity counts and YoY changes by sport to Overview; yearly distance, weighted pace, explicit cadence conversion and coverage to Run Performance; and yearly skiing/sport moving speed and coverage to Gear and Sports. Annual panels support full history or comparable import-date YTD independently of Period. No new dashboard or ingestion schema was introduced.
+
+Live Enterprise 10.4.4 validation: 55 installed panel searches, 17 hand-checked SPL fixture cases, three updated browser views, 40 local tests, deterministic package, and AppInspect with zero current errors/failures. See validation.md for test boundaries and the concurrency observation.
