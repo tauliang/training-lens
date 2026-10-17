@@ -22,3 +22,12 @@ The following screenshots use a separate fictional dataset of 219 workouts spann
 - [Overview: annual counts and changes by sport](overview_annual.png)
 - [Run Performance: annual distance, pace and cadence](run_performance_annual.png)
 - [Gear and Sports: annual skiing and sport speed](gear_sports_annual.png)
+
+## Social and Vitals
+
+These screenshots use fictional measurements and two fictional imported network snapshots. Received interactions are supplied through the documented supplemental CSV; the personal export does not contain those actor-level records. Growth dates are synthetic import observations.
+
+- [Vitals: exercise heart-rate history](vitals.png)
+- [Vitals: zones, original-unit recorded weight and coverage](vitals_detail.png)
+- [Social: network observations and source availability](social.png)
+- [Social: given/received engagement and follower ranking](social_detail.png)

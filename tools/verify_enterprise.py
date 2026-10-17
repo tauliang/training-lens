@@ -32,7 +32,7 @@ def verify(api,expected=None):
     stats=api.search('`tl_activities` | stats count AS activities sum(distance_m) AS meters')[0]
     if expected is not None:assert int(stats['activities'])==expected,'Activity count differs'
     report['checks'].append({'name':'active_summary','activities':int(stats['activities'])})
-    views=[v for v in api.get('/servicesNS/'+urllib.parse.quote(api.user,safe='')+'/training_lens/data/ui/views')['entry'] if v['acl']['app']=='training_lens'];assert len(views)==8
+    views=[v for v in api.get('/servicesNS/'+urllib.parse.quote(api.user,safe='')+'/training_lens/data/ui/views')['entry'] if v['acl']['app']=='training_lens'];assert len(views)==10
     first=api.search('`tl_activities` | head 1 | fields activity_id')[0]['activity_id']
     tokens={'snapshot':'latest','sport':'All','gear':'All','quality_mode':'Reported','units':'Metric','activity_id':first,'time.earliest':'0','time.latest':'+10y','history_scope':'Full years','cadence_units':'Strides/min'}
     for view in views:

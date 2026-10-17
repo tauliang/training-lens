@@ -18,6 +18,8 @@ The app runs without Strava API credentials or an external database. Exact GPS i
 | Activity Detail | Time-aligned HR, pace, elevation, raw cadence, laps, splits and strength details |
 | Geography | Privacy-masked activity visits to coarse geographic cells |
 | Gear and Sports | Equipment usage, yearly skiing/sport speed trends and metric coverage |
+| Vitals | Exercise HR, peak HR, HR-zone and recorded-weight history, with measurement coverage |
+| Social | Observed follower growth, given/received engagement, current-follower rankings and coverage |
 | Data Health | Indexed readiness, source quality, stream coverage and import status |
 | Setup | Configuration instructions, source settings and import manifests |
 
@@ -53,4 +55,18 @@ Single athlete, single Linux instance, Splunk Enterprise 10.x. Distributed inges
 
 Apache-2.0, with a bundled MIT-licensed FIT decoder. This independent project is not affiliated with Strava or Splunk.
 
-The baseline was validated on Enterprise **10.0.11** and **10.4.4**. The annual trend update passes 40 tests, all **55 installed panel searches** and **17 calculation/edge-case checks** on **10.4.4**, with browser validation of the three changed dashboards. Baseline snapshot lifecycle and eight-page browser checks are documented in the validation report. AppInspect has zero current errors/failures; its Python 3.13-only future declaration finding is documented in the validation report because the app also supports Enterprise 10.0's Python 3.9 runtime.
+The baseline was validated on Enterprise **10.0.11** and **10.4.4**. The annual trend update passed 40 tests, all **55 installed panel searches** and **17 calculation/edge-case checks** on **10.4.4**, with browser validation of the three changed dashboards. Baseline snapshot lifecycle and eight-page browser checks are documented in the validation report. AppInspect has zero current errors/failures; its Python 3.13-only future declaration finding is documented in the validation report because the app also supports Enterprise 10.0's Python 3.9 runtime.
+
+## Social data
+
+The native archive supplies follower/following snapshots and your exported social contributions (comments and kudos given). It does not supply follow dates or the identities/timestamps of people interacting with your activities. Social shows observed follower counts across distinct imported exports, not reconstructed historical follows. One export gives one baseline. Its date is the import observation time, not the original relationship date or the date the export was generated.
+
+Comments/kudos received and top-current-follower rankings work when an optional `social_interactions.csv` is included with the ZIP; otherwise an availability panel identifies the missing data. See the [social import contract](build/training_lens/README.md#social-dashboard) for fields and limitations. Comment text and athlete names are not indexed. Reimport exports after upgrading to populate these new records.
+
+## Vitals data
+
+Vitals defaults to All time and includes monthly/yearly exercise heart-rate trends by sport, recorded activity peaks, annual HR-zone hours, and recorded athlete-weight values associated with activities. Exercise HR is weighted by valid moving duration, not averaged equally across short and long workouts. Coverage counts accompany the trends. Weight retains original export units and is not presented as a dated weigh-in.
+
+The supplied archive has exercise HR and recorded weight, but no standard VO2 max or HRV messages were found across its FIT files and no VO2 max column exists in activities.csv. The dashboard does not estimate VO2 max, resting HR or HRV from workout averages.
+
+Social/Vitals validation: **47 tests**, **77 installed panel searches** on Enterprise **10.4.4**, eleven additional live calculation/empty-state checks, two-snapshot social checks and both new browser views. Run `tools/verify_social_vitals.py` with the same connection arguments and credential environment as the other Enterprise verifiers. The package has been rebuilt and AppInspect regenerated.

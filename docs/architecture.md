@@ -1,6 +1,6 @@
 # Training Lens architecture
 
-The approved implementation targets offline personal training analysis in a single-instance Splunk Enterprise app. Names use `training_lens` consistently. The eight dashboard pages follow native Dashboard Studio patterns without a JavaScript build or external service dependency.
+The approved implementation targets offline personal training analysis in a single-instance Splunk Enterprise app. Names use `training_lens` consistently. The ten dashboard pages follow native Dashboard Studio patterns without a JavaScript build or external service dependency.
 
 ## Ingestion
 
@@ -31,7 +31,7 @@ Best efforts evaluate continuous monotonic distance-time segments and interpolat
 
 Personal geography counts one visit per activity/cell after the first and last 200 meters and exported privacy zones are removed. Entire cells touching protected regions are suppressed conservatively. Raw samples never carry coordinates. Exact points can be retained only by opt-in in a separately restricted index. Existing indexed locations require administrative retention/purge if masks change.
 
-The native dashboards use quoted SPL tokens and validated numeric activity IDs. Display labels never become executable search fragments. Personal notes, messages, email, birth date, login history, social graphs, media and privacy-zone addresses are excluded from indexing.
+The native dashboards use quoted SPL tokens and validated numeric activity IDs. Display labels never become executable search fragments. Personal notes, messages, email, birth date, login history, unneeded social profile details, media and privacy-zone addresses are excluded from indexing.
 
 ## Release boundaries
 

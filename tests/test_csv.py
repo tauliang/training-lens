@@ -31,3 +31,11 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):csv_parser.apply_overrides(r,[{'activity_id':'1','field':'activity_id','value':'2'}])
     def test_pace_minutes_per_kilometer(self):
         self.assertEqual(self.parse(**{'8':'1500','9':'1500','10':'5000'})['pace_min_km'],5)
+
+    def test_vital_summary_max_hr_fallback_and_body_weight(self):
+        rows=list(csv.reader(io.StringIO(data().decode())))
+        rows[0]+=['Max Heart Rate','Max Heart Rate','Athlete Weight']
+        rows[1]+=['185','','70.5']
+        out=io.StringIO();csv.writer(out).writerows(rows)
+        r=list(csv_parser.parse_activities(out.getvalue().encode(),'personal','snap'))[0]
+        self.assertEqual(r['max_hr'],185);self.assertEqual(r['athlete_weight'],70.5);self.assertEqual(r['max_hr_source'],'summary')

@@ -51,3 +51,9 @@ Final retention regression: readiness markers now live in the historical data in
 Added annual activity counts and YoY changes by sport to Overview; yearly distance, weighted pace, explicit cadence conversion and coverage to Run Performance; and yearly skiing/sport moving speed and coverage to Gear and Sports. Annual panels support full history or comparable import-date YTD independently of Period. No new dashboard or ingestion schema was introduced.
 
 Live Enterprise 10.4.4 validation: 55 installed panel searches, 17 hand-checked SPL fixture cases, three updated browser views, 40 local tests, deterministic package, and AppInspect with zero current errors/failures. See validation.md for test boundaries and the concurrency observation.
+
+## Social and Vitals
+
+Added Social with network snapshots, observed import-to-import growth, given comments/kudos, supplemental received interactions and current-follower rankings. Added Vitals with monthly/yearly weighted exercise HR, max HR, configured zone hours, original-unit recorded-weight history and coverage. Importer 1.0.3 adds social reconciliation, max-HR summary fallback, raw recorded weight and local-year zone context.
+
+Validated 47 local tests, 77 installed searches on 10.4.4, eleven live calculation/empty-state fixtures, two-snapshot social assertions, both browser pages and current AppInspect. No VO2 max is inferred. Native archives do not support incoming actor attribution or historical follow dates.

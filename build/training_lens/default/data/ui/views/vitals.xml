@@ -1,0 +1,477 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Vitals</label><description>Exercise measurements from activities, not resting HR or clinical assessments. VO2 max is not imported by this release and is not estimated. HR trends use recorded activities with valid HR and duration. Weight values retain export units and activity dates; they are not dated weigh-ins.</description><definition>{
+  "title": "Vitals",
+  "description": "Exercise measurements from activities, not resting HR or clinical assessments. VO2 max is not imported by this release and is not estimated. HR trends use recorded activities with valid HR and duration. Weight values retain export units and activity dates; they are not dated weigh-ins.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.singlevalue",
+      "title": "Activities with average HR",
+      "dataSources": {
+        "primary": "ds_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.singlevalue",
+      "title": "Time-weighted exercise HR (bpm)",
+      "dataSources": {
+        "primary": "ds_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.singlevalue",
+      "title": "Highest recorded activity HR (bpm)",
+      "dataSources": {
+        "primary": "ds_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_3": {
+      "type": "splunk.singlevalue",
+      "title": "Activities with weight recorded",
+      "dataSources": {
+        "primary": "ds_3"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_4": {
+      "type": "splunk.table",
+      "title": "Vitals availability and coverage",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_5": {
+      "type": "splunk.line",
+      "title": "Annual time-weighted exercise HR by sport (bpm)",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_6": {
+      "type": "splunk.line",
+      "title": "Monthly time-weighted exercise HR by sport (bpm)",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_7": {
+      "type": "splunk.line",
+      "title": "Annual highest recorded activity HR (bpm)",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_8": {
+      "type": "splunk.column",
+      "title": "Annual heart-rate-zone hours \u2014 configured boundaries",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_9": {
+      "type": "splunk.line",
+      "title": "Recorded athlete weight by activity year \u2014 original export units",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_10": {
+      "type": "splunk.table",
+      "title": "Annual HR and weight coverage by sport",
+      "dataSources": {
+        "primary": "ds_10"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "ds_0": {
+      "type": "ds.search",
+      "name": "Activities with average HR",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats count(valid_hr) AS activities_with_hr",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_1": {
+      "type": "ds.search",
+      "name": "Time-weighted exercise HR (bpm)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds | eval bpm=if(seconds&gt;0,round(weighted/seconds,1),null()) | fields bpm",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_2": {
+      "type": "ds.search",
+      "name": "Highest recorded activity HR (bpm)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats max(valid_max_hr) AS peak_bpm",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_3": {
+      "type": "ds.search",
+      "name": "Activities with weight recorded",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats count(eval(athlete_weight&gt;0)) AS activities_with_weight",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_4": {
+      "type": "ds.search",
+      "name": "Vitals availability and coverage",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats count AS activities count(valid_hr) AS average_hr_activities count(hr_seconds) AS weighted_hr_activities count(valid_max_hr) AS max_hr_activities count(eval(athlete_weight&gt;0)) AS weight_activities | eval vo2_max=\"Not imported by this release; no estimate made\", resting_hr=\"Exercise HR is not resting HR\", hrv=\"No supported HRV measurements imported\", weight_basis=\"Export units; activity dates, not weigh-in dates\"",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_5": {
+      "type": "ds.search",
+      "name": "Annual time-weighted exercise HR by sport (bpm)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | where isnotnull(hr_seconds) | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds BY local_year sport | eval bpm=round(weighted/seconds,1) | xyseries local_year sport bpm | sort local_year | makecontinuous local_year span=1",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_6": {
+      "type": "ds.search",
+      "name": "Monthly time-weighted exercise HR by sport (bpm)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | where isnotnull(hr_seconds) | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds BY local_month sport | eval bpm=round(weighted/seconds,1) | xyseries local_month sport bpm | sort local_month",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_7": {
+      "type": "ds.search",
+      "name": "Annual highest recorded activity HR (bpm)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats max(valid_max_hr) AS peak_bpm BY local_year | sort local_year | makecontinuous local_year span=1",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_8": {
+      "type": "ds.search",
+      "name": "Annual heart-rate-zone hours \u2014 configured boundaries",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:zone earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND stream_revision_id!=\"\" | fields stream_revision_id | appendpipe [ stats count | where count=0 | eval stream_revision_id=\"__none__\" ] | fields stream_revision_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where isnotnull(local_year) | eval hours=seconds/3600 | chart sum(hours) OVER local_year BY zone",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_9": {
+      "type": "ds.search",
+      "name": "Recorded athlete weight by activity year \u2014 original export units",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where athlete_weight&gt;0 | stats median(athlete_weight) AS median_recorded_weight BY local_year | sort local_year | makecontinuous local_year span=1",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_10": {
+      "type": "ds.search",
+      "name": "Annual HR and weight coverage by sport",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval valid_hr=if(average_hr&gt;0 AND average_hr&lt;=255,average_hr,null()), valid_max_hr=if(max_hr&gt;0 AND max_hr&lt;=255 AND (isnull(average_hr) OR max_hr&gt;=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s&gt;0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds | stats count AS activities count(valid_hr) AS average_hr_activities count(hr_seconds) AS weighted_hr_activities count(valid_max_hr) AS max_hr_activities count(eval(athlete_weight&gt;0)) AS weight_activities BY local_year sport | sort 0 local_year sport",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period",
+      "options": {
+        "token": "time",
+        "defaultValue": "0,now"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": [
+          {
+            "label": "All",
+            "value": "All"
+          },
+          {
+            "label": "Run",
+            "value": "Run"
+          },
+          {
+            "label": "Ride",
+            "value": "Ride"
+          },
+          {
+            "label": "Hike",
+            "value": "Hike"
+          },
+          {
+            "label": "Alpine Ski",
+            "value": "Alpine Ski"
+          },
+          {
+            "label": "Weight Training",
+            "value": "Weight Training"
+          },
+          {
+            "label": "Workout",
+            "value": "Workout"
+          },
+          {
+            "label": "Walk",
+            "value": "Walk"
+          },
+          {
+            "label": "Swim",
+            "value": "Swim"
+          },
+          {
+            "label": "Nordic Ski",
+            "value": "Nordic Ski"
+          },
+          {
+            "label": "Backcountry Ski",
+            "value": "Backcountry Ski"
+          },
+          {
+            "label": "Kayaking",
+            "value": "Kayaking"
+          }
+        ]
+      }
+    },
+    "gear": {
+      "type": "input.text",
+      "title": "Gear (exact name or All)",
+      "options": {
+        "token": "gear",
+        "defaultValue": "All"
+      }
+    },
+    "quality": {
+      "type": "input.dropdown",
+      "title": "Quality",
+      "options": {
+        "token": "quality_mode",
+        "defaultValue": "Validated",
+        "items": [
+          {
+            "label": "Validated",
+            "value": "Validated"
+          },
+          {
+            "label": "Reported",
+            "value": "Reported"
+          },
+          {
+            "label": "Flagged only",
+            "value": "Flagged only"
+          }
+        ]
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_3",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_4",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 300,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_5",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 600,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_6",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 900,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_7",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1200,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_8",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1500,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_9",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1800,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2100,
+          "w": 1200,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "sport",
+      "gear",
+      "quality",
+      "snapshot"
+    ]
+  }
+}</definition></dashboard>

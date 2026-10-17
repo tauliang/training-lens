@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class DashboardTests(unittest.TestCase):
     def test_generated_views_have_resolvable_sources_and_escaped_filters(self):
         subprocess.run([sys.executable,str(ROOT/'tools/generate_dashboards.py')],check=True)
-        views=list((ROOT/'build/training_lens/default/data/ui/views').glob('*.xml'));self.assertEqual(len(views),8)
+        views=list((ROOT/'build/training_lens/default/data/ui/views').glob('*.xml'));self.assertEqual(len(views),10)
         for file in views:
             doc=ET.parse(file).getroot();self.assertEqual(doc.attrib.get('version'),'2');definition=json.loads(doc.findtext('definition'))
             for viz in definition['visualizations'].values():
@@ -13,7 +13,7 @@ class DashboardTests(unittest.TestCase):
                 query=ds['options']['query']
                 for token in ['sport','gear','snapshot','quality_mode','activity_id']:
                     self.assertNotIn('$'+token+'$',query,'Unescaped SPL token')
-            self.assertEqual(definition['inputs']['time']['options']['defaultValue'],'-1y,now')
+            self.assertEqual(definition['inputs']['time']['options']['defaultValue'],'0,now' if file.stem=='vitals' else '-1y,now')
     def test_package_reproducible_and_no_private_material(self):
         import tempfile,tarfile
         with tempfile.TemporaryDirectory() as t:

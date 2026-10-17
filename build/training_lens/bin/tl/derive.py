@@ -80,7 +80,7 @@ def derive_records(records,config,activity):
     if zones and samples:
         result=zone_intervals(samples,timers,zones)
         for i,seconds in enumerate(result['zone_seconds']):
-            yield {'kind':'zone','timestamp':start,'zone':i+1,'seconds':seconds,'observed_s':result['observed_s'],'unobserved_s':result['unobserved_s'],'paused_s':result['paused_s'],'calculation_version':1,'sport':activity['sport'],'local_week_start':activity.get('local_week_start')}
+            yield {'kind':'zone','timestamp':start,'zone':i+1,'seconds':seconds,'observed_s':result['observed_s'],'unobserved_s':result['unobserved_s'],'paused_s':result['paused_s'],'calculation_version':1,'sport':activity['sport'],'local_week_start':activity.get('local_week_start'),'local_year':activity.get('local_year')}
     if activity['sport']=='Run' and activity.get('duration_valid'):
         for row in best_efforts(samples,[1000,1609.344,5000,10000,21097.5,42195],max_speed=12):yield row
         segments=_segments(samples,max_speed=12)

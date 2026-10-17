@@ -9,7 +9,7 @@ import math
 import re
 from zoneinfo import ZoneInfo
 
-PARSER_VERSION='1.0.1'
+PARSER_VERSION='1.0.3'
 def number(value):
     try:
         n=float(str(value).replace(',',''))
@@ -61,8 +61,11 @@ def parse_activities(csv_bytes, athlete_id, snapshot_id, timezone='UTC'):
         try:epoch=dt.datetime.strptime(r['Activity Date'],'%b %d, %Y, %I:%M:%S %p').replace(tzinfo=dt.timezone.utc).timestamp()
         except ValueError:raise ValueError('invalid_activity_date')
         out={'kind':'activity','athlete_id':athlete_id,'snapshot_id':snapshot_id,'activity_id':aid,'event_id':hashlib.sha256((snapshot_id+':activity:'+aid).encode()).hexdigest(),'schema_version':1,'parser_version':PARSER_VERSION,'timestamp':epoch,'time_basis':'csv_utc','activity_name':r.get('Activity Name',''),'sport':r['Activity Type'],'filename':r['Filename'],'gear':r.get('Activity Gear') or r.get('Gear') or r.get('Bike') or '(unassigned)','quality_flags':[]}
-        fields={'distance_m':'Distance__2','elapsed_time_s':'Elapsed Time__2','moving_time_s':'Moving Time','elevation_gain_m':'Elevation Gain','relative_effort':'Relative Effort__2','raw_relative_effort':'Relative Effort','raw_distance_km':'Distance','raw_elapsed_time_s':'Elapsed Time','average_hr':'Average Heart Rate','max_hr':'Max Heart Rate__2','average_watts':'Average Watts','average_cadence':'Average Cadence','calories':'Calories','grade_adjusted_pace':'Average Grade Adjusted Pace','sets':'Total Sets','reps':'Total Reps'}
+        fields={'distance_m':'Distance__2','elapsed_time_s':'Elapsed Time__2','moving_time_s':'Moving Time','elevation_gain_m':'Elevation Gain','relative_effort':'Relative Effort__2','raw_relative_effort':'Relative Effort','raw_distance_km':'Distance','raw_elapsed_time_s':'Elapsed Time','athlete_weight':'Athlete Weight','average_hr':'Average Heart Rate','max_hr':'Max Heart Rate__2','average_watts':'Average Watts','average_cadence':'Average Cadence','calories':'Calories','grade_adjusted_pace':'Average Grade Adjusted Pace','sets':'Total Sets','reps':'Total Reps'}
         for field,column in fields.items():out[field]=number(r.get(column))
+        out['max_hr_source']='detailed' if out['max_hr'] is not None else 'missing'
+        if out['max_hr'] is None and number(r.get('Max Heart Rate')) is not None:
+            out['max_hr']=number(r.get('Max Heart Rate'));out['max_hr_source']='summary'
         if out['relative_effort'] is not None and out['relative_effort']<0:out['relative_effort']=None;out['quality_flags'].append('invalid_effort')
         if out['relative_effort'] is not None and out['raw_relative_effort'] is not None and out['relative_effort']!=out['raw_relative_effort']:out['quality_flags'].append('effort_conflict')
         out.update(local_fields(epoch,timezone));yield quality(out)

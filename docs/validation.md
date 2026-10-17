@@ -48,3 +48,13 @@ Nine panels were added within Overview, Run Performance, and Gear and Sports. Th
 The first all-panel API run overlapped with browser searches and reached the disposable instance's ten-concurrent-history-search limit (HTTP 503). Running verification separately passed every panel. Dashboard requests were queued by Splunk and rendered. Budget search concurrency for larger deployments; no global limits were changed.
 
 Cadence normalization deliberately starts unconfirmed. Users choose the CSV convention before the steps/minute chart renders. Skiing charts measure whole-activity moving speed, including recorded lift/traverse movement, rather than a descent-only metric. Coverage counts accompany the annual trends.
+
+## Social and Vitals — 2026-10-17
+
+The app now has ten dashboards and 77 panel searches. Fresh validation on Enterprise **10.4.4** passed all 77 installed searches, all 47 Python unit/integration tests, and eleven synthetic live-SPL calculation/empty-state checks via `tools/verify_social_vitals.py`. Two synthetic source exports verified accepted/pending/mutual counts, observed net follower growth of +2, and top-follower interaction counts of 3 and 2, excluding a non-follower. Both new browser pages rendered without definition/SPL text errors or JavaScript page errors. The private export parsed successfully; its records and outputs were not published.
+
+A structural scan of all FIT files found no standard max-MET/VO2 max (229) or HRV (78) messages. Incidental VO2 byte matches were decoded and contained no developer field descriptions. The CSV has no VO2 max column. This supports reporting no usable VO2 max for the supplied archive; proprietary unknown fields are not interpreted. Exercise HR and activity-associated athlete-weight values are supported. Weight units are left as exported.
+
+The new `social` sourcetype is included in expected snapshot counts and reconciliation groups. Observations use only ready snapshots, with a no-ready sentinel. Missing native incoming interaction data is marked unavailable and never interpreted as zero follower engagement. Native archive contribution records have no actor identities for an incoming ranking.
+
+The final rebuilt package passes AppInspect precert with zero errors/failures, the existing Python-runtime future finding and seven warnings. Testing initially created a parent runtime directory with root ownership before first startup; correcting ownership allowed clean startup. This was isolated test setup, not a package configuration change. No fresh 10.0 runtime run was performed for these additions; Python remains compatible with 3.9 and the prior baseline is documented above.

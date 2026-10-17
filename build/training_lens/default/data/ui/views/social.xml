@@ -1,0 +1,378 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Social</label><description>Follower counts are snapshots observed at import, with no historical follow dates. Native comments/kudos are contributions given. Received interactions and follower rankings require supplemental records; an empty ranking is not zero engagement.</description><definition>{
+  "title": "Social",
+  "description": "Follower counts are snapshots observed at import, with no historical follow dates. Native comments/kudos are contributions given. Received interactions and follower rankings require supplemental records; an empty ranking is not zero engagement.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.singlevalue",
+      "title": "Accepted followers",
+      "dataSources": {
+        "primary": "ds_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.singlevalue",
+      "title": "Following",
+      "dataSources": {
+        "primary": "ds_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.singlevalue",
+      "title": "Pending follower requests",
+      "dataSources": {
+        "primary": "ds_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_3": {
+      "type": "splunk.singlevalue",
+      "title": "Mutual connections",
+      "dataSources": {
+        "primary": "ds_3"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_4": {
+      "type": "splunk.table",
+      "title": "Social data availability",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_5": {
+      "type": "splunk.line",
+      "title": "Follower growth \u2014 observed at import dates",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_6": {
+      "type": "splunk.table",
+      "title": "Follower count changes between observed exports",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_7": {
+      "type": "splunk.column",
+      "title": "Comments and kudos given \u2014 monthly",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_8": {
+      "type": "splunk.column",
+      "title": "Interactions received from current followers \u2014 monthly",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_9": {
+      "type": "splunk.table",
+      "title": "Top current followers \u2014 received comments and kudos",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_10": {
+      "type": "splunk.table",
+      "title": "Network roster \u2014 selected snapshot",
+      "dataSources": {
+        "primary": "ds_10"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "ds_0": {
+      "type": "ds.search",
+      "name": "Accepted followers",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields followers",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_1": {
+      "type": "ds.search",
+      "name": "Following",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields following",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_2": {
+      "type": "ds.search",
+      "name": "Pending follower requests",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields pending_followers",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_3": {
+      "type": "ds.search",
+      "name": "Mutual connections",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields mutual",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_4": {
+      "type": "ds.search",
+      "name": "Social data availability",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | eval follower_history=\"Growth requires two or more distinct exports; dates are import observations\", received_interactions=if(received_available=1,\"Supplemental file supplied; coverage depends on its contents\",\"Unavailable in native export; provide social_interactions.csv\"), follower_roster=if(followers_available=1,\"Available\",\"Not supplied; follower metrics unknown\"), following_roster=if(following_available=1,\"Available\",\"Not supplied; following metrics unknown\"), given_comments=if(comments_available=1,\"Available\",\"Not supplied\"), given_kudos=if(kudos_available=1,\"Available\",\"Not supplied\") | table follower_roster following_roster follower_history received_interactions given_comments given_kudos",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_5": {
+      "type": "ds.search",
+      "name": "Follower growth \u2014 observed at import dates",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1 | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | eval _time=timestamp | table _time followers following",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_6": {
+      "type": "ds.search",
+      "name": "Follower count changes between observed exports",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1 | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | streamstats current=f window=1 last(followers) AS previous_followers | eval net_change=followers-previous_followers, observed_at=strftime(timestamp,\"%Y-%m-%d %H:%M:%S\") | table observed_at followers previous_followers net_change",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_7": {
+      "type": "ds.search",
+      "name": "Comments and kudos given \u2014 monthly",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"given\" | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_8": {
+      "type": "ds.search",
+      "name": "Interactions received from current followers \u2014 monthly",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1 | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_9": {
+      "type": "ds.search",
+      "name": "Top current followers \u2014 received comments and kudos",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1 | stats count(eval(interaction_type=\"Comment\")) AS comments count(eval(interaction_type=\"Kudos\")) AS kudos BY actor_id | eval interactions=comments+kudos | sort 0 - interactions - comments actor_id | head 20 | rename actor_id AS follower_athlete_id | table follower_athlete_id comments kudos interactions",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_10": {
+      "type": "ds.search",
+      "name": "Network roster \u2014 selected snapshot",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"relationship\" | table actor_id relationship follow_status",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period",
+      "options": {
+        "token": "time",
+        "defaultValue": "-1y,now"
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_3",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_4",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 300,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_5",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 600,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_6",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 900,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_7",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1200,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_8",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1500,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_9",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1800,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2100,
+          "w": 1200,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "snapshot"
+    ]
+  }
+}</definition></dashboard>

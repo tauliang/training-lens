@@ -39,7 +39,9 @@
       "dataSources": {
         "primary": "ds_3"
       },
-      "options": {},
+      "options": {
+        "nullValueDisplay": "gaps"
+      },
       "showProgressBar": true,
       "showLastUpdated": true
     },

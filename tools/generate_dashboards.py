@@ -38,6 +38,11 @@ YEAR_SPEED=HISTORY+' | where pace_valid=1 AND distance_m>0 AND moving_time_s>0'
 CADENCE=' | eval cadence_factor=case($cadence_units|s$="Strides/min",2,$cadence_units|s$="Steps/min",1,true(),null())'
 YEAR_RUN=HISTORY+' | where sport="Run"'
 YEAR_CADENCE=YEAR_RUN+' | where duration_valid=1 AND moving_time_s>0 AND average_cadence>0'+CADENCE+' | where isnotnull(cadence_factor) | eval cadence_seconds=average_cadence*cadence_factor*moving_time_s'
+HR=ACT+' | eval valid_hr=if(average_hr>0 AND average_hr<=255,average_hr,null()), valid_max_hr=if(max_hr>0 AND max_hr<=255 AND (isnull(average_hr) OR max_hr>=average_hr),max_hr,null()), hr_seconds=if(isnotnull(valid_hr) AND duration_valid=1 AND moving_time_s>0,moving_time_s,null()), weighted_hr=valid_hr*hr_seconds'
+SOCIAL=base('social',filters=False)
+NETWORK=base('social',time=False,filters=False)+' | where social_type="network"'
+RECEIVED=SOCIAL+' | where social_type="interaction" AND direction="received" AND is_current_follower=1'
+OBSERVATIONS='index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id="__none__" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1'+TIME+' | sort 0 timestamp'
 RECENT=ACT+DIST+' | sort 0 - timestamp | head 100 | table activity_id snapshot_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags'
 PANELS={
 'overview':('Training Lens','Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.',[
@@ -99,6 +104,34 @@ PANELS={
  ('Strength sessions','table',ACT+' | where sport="Weight Training" | table activity_id local_date moving_time_s average_hr sets reps'),
  ('Sport summaries','table',ACT+GUARDS+' | stats count AS activities sum(moving_time_s) AS seconds sum(elevation_gain_m) AS elevation_m BY sport | eval hours=round(seconds/3600,2) | fields sport activities hours elevation_m'),
 ]),
+
+
+'vitals':('Vitals','Exercise measurements from activities, not resting HR or clinical assessments. VO2 max is not imported by this release and is not estimated. HR trends use recorded activities with valid HR and duration. Weight values retain export units and activity dates; they are not dated weigh-ins.',[
+ ('Activities with average HR','single',HR+' | stats count(valid_hr) AS activities_with_hr'),
+ ('Time-weighted exercise HR (bpm)','single',HR+' | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds | eval bpm=if(seconds>0,round(weighted/seconds,1),null()) | fields bpm'),
+ ('Highest recorded activity HR (bpm)','single',HR+' | stats max(valid_max_hr) AS peak_bpm'),
+ ('Activities with weight recorded','single',ACT+' | stats count(eval(athlete_weight>0)) AS activities_with_weight'),
+ ('Vitals availability and coverage','table',HR+' | stats count AS activities count(valid_hr) AS average_hr_activities count(hr_seconds) AS weighted_hr_activities count(valid_max_hr) AS max_hr_activities count(eval(athlete_weight>0)) AS weight_activities | eval vo2_max="Not imported by this release; no estimate made", resting_hr="Exercise HR is not resting HR", hrv="No supported HRV measurements imported", weight_basis="Export units; activity dates, not weigh-in dates"'),
+ ('Annual time-weighted exercise HR by sport (bpm)','line',HR+' | where isnotnull(hr_seconds) | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds BY local_year sport | eval bpm=round(weighted/seconds,1) | xyseries local_year sport bpm | sort local_year | makecontinuous local_year span=1'),
+ ('Monthly time-weighted exercise HR by sport (bpm)','line',HR+' | where isnotnull(hr_seconds) | stats sum(weighted_hr) AS weighted sum(hr_seconds) AS seconds BY local_month sport | eval bpm=round(weighted/seconds,1) | xyseries local_month sport bpm | sort local_month'),
+ ('Annual highest recorded activity HR (bpm)','line',HR+' | stats max(valid_max_hr) AS peak_bpm BY local_year | sort local_year | makecontinuous local_year span=1'),
+ ('Annual heart-rate-zone hours — configured boundaries','column',telemetry('zone')+' | where isnotnull(local_year) | eval hours=seconds/3600 | chart sum(hours) OVER local_year BY zone'),
+ ('Recorded athlete weight by activity year — original export units','line',ACT+' | where athlete_weight>0 | stats median(athlete_weight) AS median_recorded_weight BY local_year | sort local_year | makecontinuous local_year span=1'),
+ ('Annual HR and weight coverage by sport','table',HR+' | stats count AS activities count(valid_hr) AS average_hr_activities count(hr_seconds) AS weighted_hr_activities count(valid_max_hr) AS max_hr_activities count(eval(athlete_weight>0)) AS weight_activities BY local_year sport | sort 0 local_year sport'),
+]),
+'social':('Social','Follower counts are snapshots observed at import, with no historical follow dates. Native comments/kudos are contributions given. Received interactions and follower rankings require supplemental records; an empty ranking is not zero engagement.',[
+ ('Accepted followers','single',NETWORK+' | fields followers'),
+ ('Following','single',NETWORK+' | fields following'),
+ ('Pending follower requests','single',NETWORK+' | fields pending_followers'),
+ ('Mutual connections','single',NETWORK+' | fields mutual'),
+ ('Social data availability','table',NETWORK+' | eval follower_history="Growth requires two or more distinct exports; dates are import observations", received_interactions=if(received_available=1,"Supplemental file supplied; coverage depends on its contents","Unavailable in native export; provide social_interactions.csv"), follower_roster=if(followers_available=1,"Available","Not supplied; follower metrics unknown"), following_roster=if(following_available=1,"Available","Not supplied; following metrics unknown"), given_comments=if(comments_available=1,"Available","Not supplied"), given_kudos=if(kudos_available=1,"Available","Not supplied") | table follower_roster following_roster follower_history received_interactions given_comments given_kudos'),
+ ('Follower growth — observed at import dates','line',OBSERVATIONS+' | eval _time=timestamp | table _time followers following'),
+ ('Follower count changes between observed exports','table',OBSERVATIONS+' | streamstats current=f window=1 last(followers) AS previous_followers | eval net_change=followers-previous_followers, observed_at=strftime(timestamp,"%Y-%m-%d %H:%M:%S") | table observed_at followers previous_followers net_change'),
+ ('Comments and kudos given — monthly','column',SOCIAL+' | where social_type="interaction" AND direction="given" | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f'),
+ ('Interactions received from current followers — monthly','column',RECEIVED+' | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f'),
+ ('Top current followers — received comments and kudos','table',RECEIVED+' | stats count(eval(interaction_type="Comment")) AS comments count(eval(interaction_type="Kudos")) AS kudos BY actor_id | eval interactions=comments+kudos | sort 0 - interactions - comments actor_id | head 20 | rename actor_id AS follower_athlete_id | table follower_athlete_id comments kudos interactions'),
+ ('Network roster — selected snapshot','table',base('social',time=False,filters=False)+' | where social_type="relationship" | table actor_id relationship follow_status'),
+]),
 'data_health':('Data Health','An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.',[
  ('Active snapshot','table','index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
  ('Pending and reconciled groups','table','`tl_reconciliation` | table snapshot_id groups matched expected_groups import_epoch'),
@@ -117,6 +150,12 @@ def dropdown(token,title,values,default):return {'type':'input.dropdown','title'
 def generate():
     for name,(title,description,panels) in PANELS.items():
         doc={'title':title,'description':description,'visualizations':{},'dataSources':{},'inputs':{'time':{'type':'input.timerange','title':'Period','options':{'token':'time','defaultValue':'-1y,now'}},'sport':dropdown('sport','Sport',['All','Run','Ride','Hike','Alpine Ski','Weight Training','Workout','Walk','Swim','Nordic Ski','Backcountry Ski','Kayaking'],'All'),'gear':{'type':'input.text','title':'Gear (exact name or All)','options':{'token':'gear','defaultValue':'All'}},'quality':dropdown('quality_mode','Quality',['Validated','Reported','Flagged only'],'Validated'),'units':dropdown('units','Units',['Metric','Imperial'],'Metric'),'snapshot':{'type':'input.text','title':'Snapshot (latest or ID)','options':{'token':'snapshot','defaultValue':'latest'}}},'layout':{'type':'grid','options':{},'structure':[],'globalInputs':['time','sport','gear','quality','units','snapshot']}}
+        if name=='vitals':
+            doc['inputs'].pop('units');doc['layout']['globalInputs'].remove('units')
+            doc['inputs']['time']['options']['defaultValue']='0,now'
+        if name=='social':
+            doc['inputs']={key:doc['inputs'][key] for key in ('time','snapshot')}
+            doc['layout']['globalInputs']=['time','snapshot']
         if name=='activity_detail':doc['inputs']['activity']={'type':'input.text','title':'Activity ID','options':{'token':'activity_id','defaultValue':'none'}};doc['layout']['globalInputs'].append('activity')
         if name in ('overview','run_performance','gear_sports'):
             doc['inputs']['history']=dropdown('history_scope','Annual panels (ignore Period)',['Full years','Comparable YTD'],'Full years')
@@ -133,7 +172,7 @@ def generate():
             query=query.replace('$SPLUNK_HOME','SPLUNK_HOME')
             doc['dataSources'][ds]={'type':'ds.search','name':label,'options':{'query':query,'queryParameters':{'earliest':'0','latest':'+10y'}}}
             visual={'type':'splunk.singlevalue' if kind=='single' else 'splunk.'+kind,'title':label,'dataSources':{'primary':ds},'options':{},'showProgressBar':True,'showLastUpdated':True}
-            if name in ('run_performance','gear_sports') and label.startswith('Annual') and kind=='line':visual['options']={'nullValueDisplay':'gaps'}
+            if name in ('run_performance','gear_sports','vitals') and kind=='line':visual['options']={'nullValueDisplay':'gaps'}
             if kind=='map':visual['options']={'layers':[{'type':'bubble','latitude':'> primary | seriesByName("latitude")','longitude':'> primary | seriesByName("longitude")','bubbleSize':'> primary | seriesByName("visits")'}]}
             if label.startswith('Recent activities') or label=='Comparable runs':visual['eventHandlers']=[{'type':'drilldown.linkToDashboard','options':{'app':'training_lens','dashboard':'activity_detail','tokens':[{'token':'activity_id','value':'row.activity_id.value'},{'token':'snapshot','value':'row.snapshot_id.value'}],'newTab':False}}]
             doc['visualizations'][viz]=visual

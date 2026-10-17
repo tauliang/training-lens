@@ -74,6 +74,11 @@ def _import(path,root,decode,timezone,athlete_id,config):
             spool.add(activity);processed.append(activity)
             if revision:
                 membership=base('membership');membership.update({'activity_id':activity['activity_id'],'stream_revision_id':revision,'expected_records':len(telemetry),'event_id':hashlib.sha256((sid+':member:'+revision).encode()).hexdigest()});spool.add(membership)
+        from .social import records as social_records
+        social_files=('followers.csv','following.csv','reactions.csv','comments.csv','social_interactions.csv')
+        payloads={name:read_member(z,name) for name in social_files if name in info['members']}
+        for ordinal,row in enumerate(social_records(payloads,{a['activity_id'] for a in processed},epoch,timezone,info['sha256'])):
+            social=base('social');social.update(row);social['event_id']=sid+':social:'+str(ordinal);spool.add(social)
         if 'structured_details.csv' in info['members']:
             from .csv_parser import read_csv,number
             by_id={a['activity_id']:a for a in activities}
@@ -102,7 +107,7 @@ def _import(path,root,decode,timezone,athlete_id,config):
         if not isinstance(gear,str) or not gear or target is None or target<=0:raise ValueError('invalid_gear_threshold')
         recorded=sum(a['distance_m'] for a in processed if a['gear']==gear and a['distance_valid'])
         item=base('gear_threshold');item.update(gear=gear,target_m=target,recorded_m=recorded,remaining_m=target-recorded,event_id=sid+':gear:'+str(i));spool.add(item)
-    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('exercise',0)+spool.counts.get('goal',0)+spool.counts.get('gear_threshold',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
+    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('social',0)+spool.counts.get('exercise',0)+spool.counts.get('goal',0)+spool.counts.get('gear_threshold',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
     spool.add(record);chunks=spool.finish()
     manifest={'snapshot_id':sid,'import_epoch':epoch,'state':'emitted','counts':spool.counts,'chunks':chunks,'quarantined_streams':failures}
     write_json(manifest_path,manifest);return manifest

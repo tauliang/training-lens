@@ -89,10 +89,40 @@ Apache-2.0 for Training Lens; fitdecode 0.11.0 is MIT licensed. See THIRD_PARTY_
 
 ## Annual history panels
 
-Overview includes annual counts and year-over-year activity changes by sport. Run Performance includes annual distance, distance-weighted pace, duration-weighted cadence and coverage. Gear and Sports includes yearly skiing speed, speed by sport and coverage. The app still has eight dashboards.
+Overview includes annual counts and year-over-year activity changes by sport. Run Performance includes annual distance, distance-weighted pace, duration-weighted cadence and coverage. Gear and Sports includes yearly skiing speed, speed by sport and coverage. These annual panels reuse the original dashboards.
 
 Annual panels use all years in the selected snapshot, independent of Period; Sport and Gear still apply. The annual comparison selector switches between Full years (latest year can be incomplete) and Comparable YTD through the import calendar date. Coverage tables count excluded or missing metric observations; absent cadence/speed is never zero-filled. Activity count charts include inactive calendar years between the first and last observed years; growth from zero has no percentage. The annual metric calculations always require valid durations and, for speed/pace, valid distances, including in Reported mode.
 
 Set CSV cadence convention in Run Performance after checking the source: Strides/min × 2 or Steps/min × 1. Unconfirmed is the default, so the normalized chart starts empty. This choice affects the annual summary chart, not raw device cadence in Activity Detail. The exported activity mean is weighted by its recorded moving duration, which approximates cadence over covered activities, not measured time at each step. If historical sources use different conventions, normalize them before applying one convention to the selected history.
 
 Speed uses summed distance / summed moving time within each sport/year, in MPH or km/h. Skiing summaries include recorded lifts/traverses; the app does not claim downhill-only speed or infer peak speed from averages. Metric lines have gaps for years without a measurement.
+
+## Social dashboard
+
+The Social dashboard imports `followers.csv`, `following.csv`, `comments.csv` and `reactions.csv` when present. It displays accepted/pending followers, following, mutual connections, observed follower-count growth and changes, monthly contributions given, monthly received interactions from current followers, a top-current-followers table, a relationship roster and availability status. Social uses only Period and Snapshot selectors.
+
+Native archive comments/kudos are treated as contributions given, not as people engaging with your activities. Comment bodies, names, reaction parent IDs and social preferences are omitted. Follower IDs are stored in the athlete-restricted activity index. Optional files are not required for ordinary activity imports. Missing files produce unknown metrics, not a fabricated zero. CSV dates without offsets use the export's UTC convention; reporting uses the configured timezone.
+
+No follow dates exist in the native roster. Growth uses import observations from all reconciled exports within Period, independently of Snapshot selection. Reimporting the identical archive under different settings is deduplicated by archive hash. One export is a baseline, not a growth history. Uploading older exports later does not reconstruct their original export dates; import them chronologically if you want the resulting observations to be useful. The latest roster is the selected snapshot's exported roster, which may already be stale.
+
+To populate received-interaction panels, include a supplemental `social_interactions.csv` at the ZIP root, with this exact header:
+
+```csv
+Interaction ID,Interaction Date,Interaction Type,Actor Athlete ID,Activity ID
+comment_1,2026-01-02T12:00:00Z,Comment,123,456
+kudos_1,2026-01-03T12:00:00Z,Kudos,123,456
+```
+
+These are illustrative IDs, not records to import as real data. Dates require an offset for ISO timestamps (or the native UTC export date format); interaction types are `Comment` or `Kudos`. IDs must be unique within the supplemental file. Activity IDs must exist in the same export. Actor IDs must be numeric. The file must contain actual received events obtained separately; the app does not connect to Strava or infer identities from text. Rankings include only actors on the accepted follower roster in the selected snapshot, count comments and kudos equally, and honor Period. A follower's status at interaction time is unknown. Displayed IDs are athlete IDs because the native roster has no names.
+
+Supply a complete desired received-interaction history with each replacement export: snapshot replacement removes old interaction rows from current totals just as it replaces activity rows. Rankings reflect only supplied records; an empty file does not prove no engagement occurred. Reimport the export on upgrade because importer version 1.0.3 emits social records and includes them in snapshot reconciliation. Old snapshots stay usable; new readiness waits for social indexing too.
+
+## Vitals dashboard
+
+Vitals uses activity-associated measurements and defaults to All time. It provides exercise-HR coverage, moving-duration-weighted average HR by month/year and sport, annual recorded maximum HR, configured HR-zone hours by year, and median recorded athlete-weight values by activity year. All heart-rate charts use bpm. Weight preserves original CSV units; the Units selector is intentionally absent here. The activity date is not asserted to be a weigh-in date.
+
+Average HR must be positive and at most 255 bpm; time weighting also requires a positive, valid moving duration. Maximum HR uses the detailed CSV column where available, otherwise the summary Max Heart Rate column. Maximum values outside the supported range or below a reported activity average are omitted from peak charts. Coverage distinguishes activities with an average from those that also have usable duration for weighting. Source values remain visible in activity summaries.
+
+HR-zone charts require configured boundaries and a reimport using importer 1.0.3; annual records use the configured reporting timezone. Effective-dated zone changes can affect comparisons across years. These are workout measurements, not resting measurements or clinical assessments. Different sports/intensities should be compared separately.
+
+The supplied archive contains no standard FIT max-MET/VO2 max messages, no standard FIT HRV messages and no VO2 max column in the activity CSV. VO2 max, resting HR and HRV are explicitly listed as unavailable; this release does not estimate them. No generic FIT developer metric or proprietary field is inferred as VO2 max. Reimport on upgrade to emit recorded weight, maximum-HR fallback and annual HR-zone context.
