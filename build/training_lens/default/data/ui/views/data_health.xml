@@ -1,0 +1,333 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Data Health</label><description>An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.</description><definition>{
+  "title": "Data Health",
+  "description": "An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.table",
+      "title": "Active snapshot",
+      "dataSources": {
+        "primary": "ds_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.table",
+      "title": "Pending and reconciled groups",
+      "dataSources": {
+        "primary": "ds_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.table",
+      "title": "Recent worker status",
+      "dataSources": {
+        "primary": "ds_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_3": {
+      "type": "splunk.table",
+      "title": "Quality issues",
+      "dataSources": {
+        "primary": "ds_3"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_4": {
+      "type": "splunk.table",
+      "title": "Completeness by year and sport",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_5": {
+      "type": "splunk.table",
+      "title": "Import manifests",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    }
+  },
+  "dataSources": {
+    "ds_0": {
+      "type": "ds.search",
+      "name": "Active snapshot",
+      "options": {
+        "query": "index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_1": {
+      "type": "ds.search",
+      "name": "Pending and reconciled groups",
+      "options": {
+        "query": "`tl_reconcile` | table snapshot_id groups matched expected_groups import_epoch",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_2": {
+      "type": "ds.search",
+      "name": "Recent worker status",
+      "options": {
+        "query": "index=training_lens_ops sourcetype=training_lens:worker earliest=-7d | sort 0 - _time | head 20 | table _time status imports error_type",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_3": {
+      "type": "ds.search",
+      "name": "Quality issues",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where flagged=1 | table activity_id local_date sport quality_flags distance_m moving_time_s elapsed_time_s raw_relative_effort relative_effort",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_4": {
+      "type": "ds.search",
+      "name": "Completeness by year and sport",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | stats count AS activities count(average_hr) AS hr count(relative_effort) AS effort count(eval(stream_status=\"decoded\")) AS decoded BY local_year sport",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_5": {
+      "type": "ds.search",
+      "name": "Import manifests",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:snapshot earliest=0 latest=+10y | dedup event_id | sort 0 - import_epoch | table snapshot_id import_epoch expected_records expected_groups quarantined_streams timezone exact_gps",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period",
+      "options": {
+        "token": "time",
+        "defaultValue": "-1y,now"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": [
+          {
+            "label": "All",
+            "value": "All"
+          },
+          {
+            "label": "Run",
+            "value": "Run"
+          },
+          {
+            "label": "Ride",
+            "value": "Ride"
+          },
+          {
+            "label": "Hike",
+            "value": "Hike"
+          },
+          {
+            "label": "Alpine Ski",
+            "value": "Alpine Ski"
+          },
+          {
+            "label": "Weight Training",
+            "value": "Weight Training"
+          },
+          {
+            "label": "Workout",
+            "value": "Workout"
+          },
+          {
+            "label": "Walk",
+            "value": "Walk"
+          },
+          {
+            "label": "Swim",
+            "value": "Swim"
+          },
+          {
+            "label": "Nordic Ski",
+            "value": "Nordic Ski"
+          },
+          {
+            "label": "Backcountry Ski",
+            "value": "Backcountry Ski"
+          },
+          {
+            "label": "Kayaking",
+            "value": "Kayaking"
+          }
+        ]
+      }
+    },
+    "gear": {
+      "type": "input.text",
+      "title": "Gear (exact name or All)",
+      "options": {
+        "token": "gear",
+        "defaultValue": "All"
+      }
+    },
+    "quality": {
+      "type": "input.dropdown",
+      "title": "Quality",
+      "options": {
+        "token": "quality_mode",
+        "defaultValue": "Validated",
+        "items": [
+          {
+            "label": "Validated",
+            "value": "Validated"
+          },
+          {
+            "label": "Reported",
+            "value": "Reported"
+          },
+          {
+            "label": "Flagged only",
+            "value": "Flagged only"
+          }
+        ]
+      }
+    },
+    "units": {
+      "type": "input.dropdown",
+      "title": "Units",
+      "options": {
+        "token": "units",
+        "defaultValue": "Metric",
+        "items": [
+          {
+            "label": "Metric",
+            "value": "Metric"
+          },
+          {
+            "label": "Imperial",
+            "value": "Imperial"
+          }
+        ]
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 300,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 600,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_3",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 900,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_4",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1200,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_5",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1500,
+          "w": 1200,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "sport",
+      "gear",
+      "quality",
+      "units",
+      "snapshot"
+    ]
+  }
+}</definition></dashboard>

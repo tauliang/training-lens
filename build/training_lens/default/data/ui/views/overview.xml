@@ -1,0 +1,442 @@
+<?xml version='1.0' encoding='utf-8'?>
+<dashboard version="2" theme="light"><label>Training Lens</label><description>Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.</description><definition>{
+  "title": "Training Lens",
+  "description": "Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.",
+  "visualizations": {
+    "viz_0": {
+      "type": "splunk.singlevalue",
+      "title": "Activities",
+      "dataSources": {
+        "primary": "ds_0"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_1": {
+      "type": "splunk.singlevalue",
+      "title": "Moving hours",
+      "dataSources": {
+        "primary": "ds_1"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_2": {
+      "type": "splunk.singlevalue",
+      "title": "Distance (selected units)",
+      "dataSources": {
+        "primary": "ds_2"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_3": {
+      "type": "splunk.singlevalue",
+      "title": "Flagged activities",
+      "dataSources": {
+        "primary": "ds_3"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_4": {
+      "type": "splunk.column",
+      "title": "Weekly moving hours by sport",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_5": {
+      "type": "splunk.bar",
+      "title": "Sport mix by moving hours",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_6": {
+      "type": "splunk.column",
+      "title": "Same elapsed part of each year",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_7": {
+      "type": "splunk.table",
+      "title": "Coverage",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true
+    },
+    "viz_8": {
+      "type": "splunk.table",
+      "title": "Recent activities \u2014 click to inspect",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {},
+      "showProgressBar": true,
+      "showLastUpdated": true,
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "training_lens",
+            "dashboard": "activity_detail",
+            "tokens": [
+              {
+                "token": "activity_id",
+                "value": "row.activity_id.value"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_0": {
+      "type": "ds.search",
+      "name": "Activities",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats count AS Activities",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_1": {
+      "type": "ds.search",
+      "name": "Moving hours",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $quality_mode|s$!=\"Validated\" OR duration_valid=1 | stats sum(moving_time_s) AS seconds | eval Hours=round(seconds/3600,2) | fields Hours",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_2": {
+      "type": "ds.search",
+      "name": "Distance (selected units)",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $quality_mode|s$!=\"Validated\" OR distance_valid=1 | eval display_distance=distance_m/if($units|s$=\"Imperial\",1609.344,1000) | stats sum(display_distance) AS Distance | eval Distance=round(Distance,2)",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_3": {
+      "type": "ds.search",
+      "name": "Flagged activities",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats count(eval(flagged=1)) AS Flagged",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_4": {
+      "type": "ds.search",
+      "name": "Weekly moving hours by sport",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where $quality_mode|s$!=\"Validated\" OR duration_valid=1 | chart sum(moving_time_s) OVER local_week_start BY sport | foreach * [ eval &lt;&lt;FIELD&gt;&gt;=if(isnum('&lt;&lt;FIELD&gt;&gt;'),round('&lt;&lt;FIELD&gt;&gt;'/3600,2),'&lt;&lt;FIELD&gt;&gt;') ]",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_5": {
+      "type": "ds.search",
+      "name": "Sport mix by moving hours",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats sum(moving_time_s) AS seconds BY sport | eval hours=round(seconds/3600,2) | fields sport hours",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_6": {
+      "type": "ds.search",
+      "name": "Same elapsed part of each year",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | where tonumber(strftime(timestamp,\"%j\"))&lt;=tonumber(strftime(now(),\"%j\")) | stats count AS activities BY local_year | sort local_year",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_7": {
+      "type": "ds.search",
+      "name": "Coverage",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | stats count AS activities count(average_hr) AS with_hr count(relative_effort) AS with_effort count(eval(stream_status=\"decoded\")) AS decoded_streams count(eval(stream_status=\"summary_only\")) AS summary_only",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    },
+    "ds_8": {
+      "type": "ds.search",
+      "name": "Recent activities \u2014 click to inspect",
+      "options": {
+        "query": "index=training_lens sourcetype=training_lens:activity earliest=0 latest=+10y [ search index=training_lens_ops sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(isnum($time.earliest|s$),tonumber($time.earliest|s$),relative_time(now(),$time.earliest|s$)) AND timestamp&lt;=if($time.latest|s$=\"now\",now(),if(isnum($time.latest|s$),tonumber($time.latest|s$),relative_time(now(),$time.latest|s$))) | where ($sport|s$=\"All\" OR sport=$sport|s$) AND ($gear|s$=\"All\" OR gear=$gear|s$) AND ($quality_mode|s$!=\"Flagged only\" OR flagged=1) | eval display_distance=distance_m/if($units|s$=\"Imperial\",1609.344,1000) | sort 0 - timestamp | head 100 | table activity_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags",
+        "queryParameters": {
+          "earliest": "0",
+          "latest": "+10y"
+        }
+      }
+    }
+  },
+  "inputs": {
+    "time": {
+      "type": "input.timerange",
+      "title": "Period",
+      "options": {
+        "token": "time",
+        "defaultValue": "-1y,now"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": [
+          {
+            "label": "All",
+            "value": "All"
+          },
+          {
+            "label": "Run",
+            "value": "Run"
+          },
+          {
+            "label": "Ride",
+            "value": "Ride"
+          },
+          {
+            "label": "Hike",
+            "value": "Hike"
+          },
+          {
+            "label": "Alpine Ski",
+            "value": "Alpine Ski"
+          },
+          {
+            "label": "Weight Training",
+            "value": "Weight Training"
+          },
+          {
+            "label": "Workout",
+            "value": "Workout"
+          },
+          {
+            "label": "Walk",
+            "value": "Walk"
+          },
+          {
+            "label": "Swim",
+            "value": "Swim"
+          },
+          {
+            "label": "Nordic Ski",
+            "value": "Nordic Ski"
+          },
+          {
+            "label": "Backcountry Ski",
+            "value": "Backcountry Ski"
+          },
+          {
+            "label": "Kayaking",
+            "value": "Kayaking"
+          }
+        ]
+      }
+    },
+    "gear": {
+      "type": "input.text",
+      "title": "Gear (exact name or All)",
+      "options": {
+        "token": "gear",
+        "defaultValue": "All"
+      }
+    },
+    "quality": {
+      "type": "input.dropdown",
+      "title": "Quality",
+      "options": {
+        "token": "quality_mode",
+        "defaultValue": "Validated",
+        "items": [
+          {
+            "label": "Validated",
+            "value": "Validated"
+          },
+          {
+            "label": "Reported",
+            "value": "Reported"
+          },
+          {
+            "label": "Flagged only",
+            "value": "Flagged only"
+          }
+        ]
+      }
+    },
+    "units": {
+      "type": "input.dropdown",
+      "title": "Units",
+      "options": {
+        "token": "units",
+        "defaultValue": "Metric",
+        "items": [
+          {
+            "label": "Metric",
+            "value": "Metric"
+          },
+          {
+            "label": "Imperial",
+            "value": "Imperial"
+          }
+        ]
+      }
+    },
+    "snapshot": {
+      "type": "input.text",
+      "title": "Snapshot (latest or ID)",
+      "options": {
+        "token": "snapshot",
+        "defaultValue": "latest"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {},
+    "structure": [
+      {
+        "item": "viz_0",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_1",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 0,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_2",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_3",
+        "type": "block",
+        "position": {
+          "x": 600,
+          "y": 150,
+          "w": 600,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_4",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 300,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_5",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 600,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_6",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 900,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_7",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1200,
+          "w": 1200,
+          "h": 300
+        }
+      },
+      {
+        "item": "viz_8",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1500,
+          "w": 1200,
+          "h": 300
+        }
+      }
+    ],
+    "globalInputs": [
+      "time",
+      "sport",
+      "gear",
+      "quality",
+      "units",
+      "snapshot"
+    ]
+  }
+}</definition></dashboard>

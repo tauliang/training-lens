@@ -26,3 +26,5 @@ Task 3: native config and reconciliation contract implemented; runtime acceptanc
 Task 5: decoder RED→GREEN with synthetic FIT CRC and timestamp fixture, GPX extensions, coordinates, truncation and rejected XML declarations. Full private archive validation running.
 Task 6: derived analysis RED→GREEN (HR intervals/pauses/gaps, interpolated best efforts, distance resets and privacy). Export privacy-zone masking has an independent integration fixture that failed with three leaked cells before the automatic exported-zone mask was added; now zero shared cells. Raw sample events never carry location.
 Ruling: use only confirmed custom HR zones. Until configured, HR traces remain usable and zone panels explain missing configuration; do not silently treat the old exported maximum HR as current.
+
+Task 4: eight native Dashboard Studio pages generated; filter tokens use SPL string escaping, empty snapshot selection fails closed, activity IDs are validated, and detail queries are bounded by current stream membership. Generator/package tests RED→GREEN. Browser and runtime SPL checks pending.
