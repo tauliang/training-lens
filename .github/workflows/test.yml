@@ -30,7 +30,7 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install splunk-appinspect==4.3.1
       - run: python tools/generate_dashboards.py && python tools/package.py
-      - run: splunk-appinspect inspect dist/training_lens-1.0.0.spl --mode precert --output-file appinspect-ci.json
+      - run: splunk-appinspect inspect dist/training_lens-1.0.1.spl --mode precert --output-file appinspect-ci.json
       - name: Require zero errors, failures and future failures
         run: |
           python - <<'PYTHON'

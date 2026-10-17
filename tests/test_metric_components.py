@@ -25,4 +25,4 @@ class MetricComponentsTests(unittest.TestCase):
  def test_release_metadata(self):
   import configparser
   c=configparser.ConfigParser();c.read(Path(__file__).resolve().parents[1]/'build/training_lens/default/app.conf')
-  self.assertEqual(c['launcher']['version'],'1.0.0');self.assertEqual(c['launcher']['author'],'Tau Liang')
+  self.assertEqual(c['launcher']['version'],'1.0.1');self.assertEqual(c['id']['version'],'1.0.1');self.assertTrue(c.getboolean('package','check_for_updates'));self.assertEqual(c['launcher']['author'],'Tau Liang')

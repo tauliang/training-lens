@@ -21,7 +21,7 @@ Private reports, source rows, screenshots and temporary credentials are intentio
 
 ## AppInspect
 
-The accompanying AppInspect report was generated with version 4.3.1 in precert mode. The final 1.0.0 package has **zero errors, zero failures and zero future failures**. Its scripted input declares `python.required = 3.13`; Enterprise 10.0 documents that key as a no-op, while later versions use it for compatibility. `python.version = python3` preserves the baseline interpreter selection and all app code is tested on Python 3.9 and 3.13.
+The accompanying AppInspect report was generated with version 4.3.1 in precert mode. The current 1.0.1 package has **zero errors, zero failures and zero future failures**. Its scripted input declares `python.required = 3.13`; Enterprise 10.0 documents that key as a no-op, while later versions use it for compatibility. `python.version = python3` preserves the baseline interpreter selection and all app code is tested on Python 3.9 and 3.13.
 
 Remaining warnings relate to scripted inputs, the one-minute reconciliation schedule, Cloud-specific metadata/config replication expectations, and legacy Python compatibility advice. Training Lens targets a single Splunk Enterprise instance, not Splunk Cloud. See `dist/appinspect-report.json` for the exact findings against the packaged artifact.
 
@@ -83,3 +83,8 @@ The local API probe median was0.165seconds across95 current data-source checks (
 
 
 The native scheduled inbox worker on10.0.11 imported a dropped219-workout ZIP, processed an identical alias without another snapshot, then imported an overlapping/reordered220-workout ZIP. Scheduled reconciliation activated220activities with220distinct activity IDs. Physical snapshot manifests increased from the two fixture baselines to four, exactly one for each distinct dropped export; the renamed copy added none. No import CLI or forged ready event was used in this acceptance run.
+
+
+## Release 1.0.1
+
+Set `[package] check_for_updates = true` in app.conf and bump both launcher/id versions to1.0.1. The package builder derives its default output name from app metadata, and CI targets the new package. The metadata regression test now requires enabled update checks. All63local tests pass; the actual tar.gz was inspected to verify its flag/version/author and passes AppInspect with zeroerrors, failures or futurefailures. The superseded1.0.0GitHubrelease/tag will be removed after1.0.1 is published. The current precert report has8advisory warnings, including its private-app recommendation to disable update checks; update checks intentionally stay enabled to meet the requested validation requirement.

@@ -4,7 +4,7 @@ Private training analytics from Strava exports, for Splunk Enterprise 10.x on a 
 
 ## Install and enable
 
-Install `training_lens-1.0.0.spl` through Splunk Web, then restart Splunk. The app's script input is initially disabled. Create `local/inputs.conf` in the installed app:
+Install `training_lens-1.0.1.spl` through Splunk Web, then restart Splunk. The app's script input is initially disabled. Create `local/inputs.conf` in the installed app:
 
 ```ini
 [script://./bin/import_strava.py]
@@ -129,7 +129,7 @@ The supplied archive contains no standard FIT max-MET/VO2 max messages, no stand
 
 ## Parameterized panels and lookup maintenance
 
-Version **1.0.0**, author **Tau Liang**. The main ingestion index is **`strava`**. Optional exact GPS uses `strava_private`, masked cells use `strava_shared`, and worker logs use `strava_ops`. App ID, sourcetypes and role names remain `training_lens`.
+Version **1.0.1**, author **Tau Liang**. The main ingestion index is **`strava`**. Optional exact GPS uses `strava_private`, masked cells use `strava_shared`, and worker logs use `strava_ops`. App ID, sourcetypes and role names remain `training_lens`.
 
 The ten dashboard URLs now contain 28 panels. Choose a metric to reuse its chart; labels, legends and axis units come from the same catalog definition. Time grain replaces weekly/monthly/yearly copies. The Overview summary aggregates the selected period directly. HR comparison overlays average and peak bpm; engagement overlays comments and kudos. Rate series retain sport when Sport=All, so skiing and running pace are not combined. Table-mode selectors retain investigation, coverage and operational workflows. Maps show an explicitly labeled top 1,000 cells.
 

@@ -4,7 +4,7 @@ A private Splunk Enterprise app for analyzing Strava data exports. Import your Z
 
 ## Install
 
-Install [`dist/training_lens-1.0.0.spl`](dist/training_lens-1.0.0.spl) through Splunk Web and follow the [installation and configuration guide](build/training_lens/README.md). Enable the disabled script input, assign the athlete role, and copy exports into the private inbox. A scheduled reconciliation search switches dashboards only after indexing completes. The main ingestion index is `strava`.
+Install [`dist/training_lens-1.0.1.spl`](dist/training_lens-1.0.1.spl) through Splunk Web and follow the [installation and configuration guide](build/training_lens/README.md). Enable the disabled script input, assign the athlete role, and copy exports into the private inbox. A scheduled reconciliation search switches dashboards only after indexing completes. The main ingestion index is `strava`.
 
 The app runs without Strava API credentials or an external database. Exact GPS import is off by default. Personal ZIPs, normalized data, preferences and runtime credentials are excluded from the repository and release package.
 
@@ -73,4 +73,4 @@ Social/Vitals validation: **47 tests**, **77 installed panel searches** on Enter
 
 ### Parameterized dashboards
 
-The 10 dashboards now use **28 panels**, with lookup-backed metric, sport, gear, configured-goal and best-effort target choices. Metric selection changes values, legends and axis units together. The catalog includes volume, sport performance, confirmed running cadence, HR/weight, telemetry and social metrics; unavailable measurements remain explicit. See the [configuration guide](build/training_lens/README.md#parameterized-panels-and-lookup-maintenance) for cache status and upgrade instructions. Release metadata: **1.0.0 · Tau Liang**.
+The 10 dashboards now use **28 panels**, with lookup-backed metric, sport, gear, configured-goal and best-effort target choices. Metric selection changes values, legends and axis units together. The catalog includes volume, sport performance, confirmed running cadence, HR/weight, telemetry and social metrics; unavailable measurements remain explicit. See the [configuration guide](build/training_lens/README.md#parameterized-panels-and-lookup-maintenance) for cache status and upgrade instructions. Release metadata: **1.0.1 · Tau Liang**.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Create an allowlisted deterministic Splunk app archive."""
-import argparse,gzip,hashlib,io,tarfile
+import argparse,configparser,gzip,hashlib,io,re,tarfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def package(output):
@@ -20,4 +20,7 @@ def package(output):
                     info=tarfile.TarInfo('training_lens/'+rel.as_posix());data=path.read_bytes();info.size=len(data);info.mtime=0;info.uid=info.gid=0;info.mode=0o755 if rel.as_posix()=='bin/import_strava.py' else 0o644;tar.addfile(info,io.BytesIO(data))
     digest=hashlib.sha256(output.read_bytes()).hexdigest();output.with_suffix(output.suffix+'.sha256').write_text(digest+'  '+output.name+'\n');return digest
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT/'dist/training_lens-1.0.0.spl');args=parser.parse_args();print(package(args.output))
+    config=configparser.ConfigParser();config.read(ROOT/'build/training_lens/default/app.conf')
+    version=config['id']['version']
+    if not re.fullmatch(r'[0-9]+[.][0-9]+[.][0-9]+',version):raise ValueError('invalid_package_version')
+    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT/('dist/training_lens-'+version+'.spl'));args=parser.parse_args();print(package(args.output))
