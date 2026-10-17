@@ -23,7 +23,8 @@ PANELS={
 def queries():
     result={}
     for key,(view,label) in PANELS.items():
-        doc=json.loads(ET.parse(ROOT/'build/training_lens/default/data/ui/views'/(view+'.xml')).getroot().findtext('definition'))
+        from generate_dashboards import PANELS as original_panels
+        doc={'dataSources':{str(i):{'name':name,'options':{'query':query}} for i,(name,kind,query) in enumerate(original_panels[view][2])}}
         matches=[ds['options']['query'] for ds in doc['dataSources'].values() if ds['name']==label]
         assert len(matches)==1,'Missing yearly panel: '+label
         result[key]=matches[0]

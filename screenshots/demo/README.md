@@ -31,3 +31,8 @@ These screenshots use fictional measurements and two fictional imported network 
 - [Vitals: zones, original-unit recorded weight and coverage](vitals_detail.png)
 - [Social: network observations and source availability](social.png)
 - [Social: given/received engagement and follower ranking](social_detail.png)
+
+
+## Current parameterized release
+
+The ten primary images (`overview.png`, `training.png`, `run_performance.png`, `activity_detail.png`, `geography.png`, `gear_sports.png`, `social.png`, `vitals.png`, `data_health.png`, `setup.png`) now show version1.0.0's28-panel layouts, captured at1600×1700 onEnterprise10.4.4. The data is fictional:219workouts spanning2022–2026 and two synthetic network observations. Default metrics use Metric units and unconfirmed CSV cadence. Every primary screenshot was refreshed after the parameterized implementation; `_annual.png` and `_detail.png` files retain earlier layouts for reference.

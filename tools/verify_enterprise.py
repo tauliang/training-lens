@@ -27,20 +27,9 @@ class Enterprise:
         return self.get(scope+'/'+sid+'/results').get('results',[])
 
 def verify(api,expected=None):
-    version=api.get('/services/server/info')['entry'][0]['content']['version'];report={'version':version,'checks':[]}
-    current=api.search('`tl_active`');assert len(current)==1 and current[0]['snapshot_id']!='__none__','No reconciled active snapshot'
-    stats=api.search('`tl_activities` | stats count AS activities sum(distance_m) AS meters')[0]
-    if expected is not None:assert int(stats['activities'])==expected,'Activity count differs'
-    report['checks'].append({'name':'active_summary','activities':int(stats['activities'])})
-    views=[v for v in api.get('/servicesNS/'+urllib.parse.quote(api.user,safe='')+'/training_lens/data/ui/views')['entry'] if v['acl']['app']=='training_lens'];assert len(views)==10
-    first=api.search('`tl_activities` | head 1 | fields activity_id')[0]['activity_id']
-    tokens={'snapshot':'latest','sport':'All','gear':'All','quality_mode':'Reported','units':'Metric','activity_id':first,'time.earliest':'0','time.latest':'+10y','history_scope':'Full years','cadence_units':'Strides/min'}
-    for view in views:
-        definition=json.loads(ET.fromstring(view['content']['eai:data']).findtext('definition'))
-        for ds in definition['dataSources'].values():
-            query=ds['options']['query']
-            query=substitute_tokens(query,tokens)
-            start=time.monotonic();rows=api.search(query);report['checks'].append({'view':view['name'],'panel':ds['name'],'rows':len(rows),'seconds':round(time.monotonic()-start,3)})
+    from verify_metric_selectors import verify as verify_metrics
+    report=verify_metrics(api)
+    if expected is not None:assert int(report['active_activities'])==expected,'Activity count differs'
     return report
 
 def main():

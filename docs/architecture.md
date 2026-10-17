@@ -14,10 +14,10 @@ FIT CRC validation is strict. Invalid streams are quarantined without erasing va
 
 ## Indexes and readiness
 
-- `training_lens`: activity summaries, memberships, sample telemetry without location, laps, derived metrics and durable readiness markers.
-- `training_lens_private`: opt-in exact location samples, with a separate role.
-- `training_lens_shared`: coarse geographic cells produced after endpoint and protected-zone masks.
-- `training_lens_ops`: worker status with shorter operational retention.
+- `strava`: activity summaries, memberships, sample telemetry without location, laps, derived metrics and durable readiness markers.
+- `strava_private`: opt-in exact location samples, with a separate role.
+- `strava_shared`: coarse geographic cells produced after endpoint and protected-zone masks.
+- `strava_ops`: worker status with shorter operational retention.
 
 Reconciliation collapses logical groups by snapshot or stream revision and counts distinct event IDs. Snapshot manifests supply expected summary counts; memberships supply expected telemetry counts. A snapshot becomes ready only when all its groups match. Readiness is published as a single immutable marker instead of mutable registry lookups. Current searches select the ready snapshot with the newest import epoch; telemetry searches restrict to its stream membership. Empty ready/membership selections fail closed. Repeated physical events cannot double logical totals.
 
@@ -36,3 +36,12 @@ The native dashboards use quoted SPL tokens and validated numeric activity IDs. 
 ## Release boundaries
 
 The first release includes native charts/tables and a bubble map with an offline table fallback. It does not implement community segment rankings, proprietary load parity, inferred power-duration curves, API sync, custom calendar components or route matching. Those need additional data or separate requirements. Goal progress is explicitly as of import date rather than a live estimate. Automatic geo sharing to other users requires a separate sanitized membership publisher; athlete/admin dashboards remain private.
+
+
+## Parameterized release
+
+Main ingestion uses `strava`; `strava_private`, `strava_shared` and `strava_ops` preserve separate access/retention boundaries. Version1.0.0 is authored by Tau Liang. Generated native Studio views consolidate77 panels into28. The static metric catalog cannot execute arbitrary SPL: the Python build compiler validates fields, aggregation keys and conversions against fixed mappings, and selections enter queries only as quoted values.
+
+Private scheduled caches associate ready snapshot membership with immutable revision aggregates, verify expansion cardinality and ready-snapshot reconciliation, and retain previous data on a detected incomplete generation. One options source per analytic page feeds bounded metadata chains. Selected metric definitions supply chart values, titles, legends and axis units together. Summary and rate calculations use original eligible denominators, not means of bucket means.
+
+Inbox idempotence uses archive/settings snapshot hashes, durable manifests and content-addressed spool chunks. Telemetry is flushed at revision boundaries so later CSV reordering cannot change unchanged chunk contents. Summary versions deliberately remain snapshot-specific. Every activity-based query selects exactly one ready snapshot and deduplicates event IDs. Identical ZIP aliases emit no new chunks; replacement exports can add, correct or remove workouts without inflating selected totals.

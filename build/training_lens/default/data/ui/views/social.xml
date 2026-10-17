@@ -4,110 +4,48 @@
   "description": "Follower counts are snapshots observed at import, with no historical follow dates. Native comments/kudos are contributions given. Received interactions and follower rankings require supplemental records; an empty ranking is not zero engagement.",
   "visualizations": {
     "viz_0": {
-      "type": "splunk.singlevalue",
-      "title": "Accepted followers",
+      "type": "splunk.line",
+      "title": "$network_metadata:result.title$",
       "dataSources": {
-        "primary": "ds_0"
+        "primary": "network_chart"
       },
-      "options": {},
+      "options": {
+        "nullValueDisplay": "gaps",
+        "yAxisTitleText": "$network_metadata:result.unit$",
+        "xAxisTitleText": "Observed import date"
+      },
       "showProgressBar": true,
       "showLastUpdated": true
     },
     "viz_1": {
-      "type": "splunk.singlevalue",
-      "title": "Following",
+      "type": "splunk.line",
+      "title": "$engagement_metadata:result.title$",
       "dataSources": {
-        "primary": "ds_1"
+        "primary": "engagement_chart"
       },
-      "options": {},
+      "options": {
+        "nullValueDisplay": "gaps",
+        "yAxisTitleText": "$engagement_metadata:result.unit$",
+        "xAxisTitleText": "Period"
+      },
       "showProgressBar": true,
       "showLastUpdated": true
     },
     "viz_2": {
-      "type": "splunk.singlevalue",
-      "title": "Pending follower requests",
+      "type": "splunk.table",
+      "title": "Followers",
       "dataSources": {
-        "primary": "ds_2"
+        "primary": "table_2"
       },
       "options": {},
       "showProgressBar": true,
       "showLastUpdated": true
     },
     "viz_3": {
-      "type": "splunk.singlevalue",
-      "title": "Mutual connections",
-      "dataSources": {
-        "primary": "ds_3"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_4": {
       "type": "splunk.table",
-      "title": "Social data availability",
+      "title": "Current network and source availability",
       "dataSources": {
-        "primary": "ds_4"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_5": {
-      "type": "splunk.line",
-      "title": "Follower growth \u2014 observed at import dates",
-      "dataSources": {
-        "primary": "ds_5"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_6": {
-      "type": "splunk.table",
-      "title": "Follower count changes between observed exports",
-      "dataSources": {
-        "primary": "ds_6"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_7": {
-      "type": "splunk.column",
-      "title": "Comments and kudos given \u2014 monthly",
-      "dataSources": {
-        "primary": "ds_7"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_8": {
-      "type": "splunk.column",
-      "title": "Interactions received from current followers \u2014 monthly",
-      "dataSources": {
-        "primary": "ds_8"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_9": {
-      "type": "splunk.table",
-      "title": "Top current followers \u2014 received comments and kudos",
-      "dataSources": {
-        "primary": "ds_9"
-      },
-      "options": {},
-      "showProgressBar": true,
-      "showLastUpdated": true
-    },
-    "viz_10": {
-      "type": "splunk.table",
-      "title": "Network roster \u2014 selected snapshot",
-      "dataSources": {
-        "primary": "ds_10"
+        "primary": "table_3"
       },
       "options": {},
       "showProgressBar": true,
@@ -115,121 +53,132 @@
     }
   },
   "dataSources": {
-    "ds_0": {
+    "dimensions": {
       "type": "ds.search",
-      "name": "Accepted followers",
+      "name": "dimensions",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields followers",
+        "query": "| inputlookup training_lens_dimension_options | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ]",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
         }
       }
     },
-    "ds_1": {
-      "type": "ds.search",
-      "name": "Following",
+    "sport_options": {
+      "type": "ds.chain",
+      "name": "sport_options",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields following",
+        "query": "| where dimension=\"sport\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "gear_options": {
+      "type": "ds.chain",
+      "name": "gear_options",
+      "options": {
+        "query": "| where dimension=\"gear\" | fields value label | append [ | makeresults | eval value=\"All\",label=\"All\" ] | dedup value | sort 0 label",
+        "extend": "dimensions"
+      }
+    },
+    "metric_options": {
+      "type": "ds.search",
+      "name": "metric_options",
+      "options": {
+        "query": "| inputlookup training_lens_metric_availability | search [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | where sport=$sport|s$ AND gear=$gear|s$ AND valid_count&gt;0 AND metric_id IN (\"followers\",\"following\",\"pending\",\"mutual\",\"given\",\"received\") | lookup training_lens_metric_catalog metric_id OUTPUT label sort_order prerequisite | stats first(label) AS label first(sort_order) AS sort_order max(refreshed_at) AS refreshed_at BY metric_id | eval label=if(now()-refreshed_at&gt;900,label.\" \u00b7 cache stale\",label) | append [ | makeresults | eval metric_id=\"__auto__\",label=\"Automatic / first available\",sort_order=-1 ] | sort 0 sort_order metric_id",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
         }
       }
     },
-    "ds_2": {
-      "type": "ds.search",
-      "name": "Pending follower requests",
+    "network_options": {
+      "type": "ds.chain",
+      "name": "network_options",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields pending_followers",
+        "query": "| where metric_id=\"__auto__\" OR metric_id IN (\"followers\",\"following\",\"pending\",\"mutual\")",
+        "extend": "metric_options"
+      }
+    },
+    "network_metadata": {
+      "type": "ds.chain",
+      "name": "network_metadata",
+      "options": {
+        "query": "| where metric_id!=\"__auto__\" AND ($network|s$=\"__auto__\" OR metric_id=$network|s$) | head 1 | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),title=label.\" (\".unit.\")\" | appendpipe [ stats count | where count=0 | eval metric_id=\"__none__\",unit=\"\",title=\"Choose an available metric \u00b7 cache pending or selection unavailable\" ] | fields metric_id title unit",
+        "extend": "network_options",
+        "enableSmartSources": true
+      }
+    },
+    "network_aggregate": {
+      "type": "ds.search",
+      "name": "network_aggregate",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | eval metric_id=$network_metadata:result.metric_id|s$ | eval eligible=case(metric_id=\"followers\",if(followers_available=1 AND social_type=\"network\",1,0),metric_id=\"following\",if(following_available=1 AND social_type=\"network\",1,0),metric_id=\"pending\",if(followers_available=1 AND social_type=\"network\",1,0),metric_id=\"mutual\",if(followers_available=1 AND following_available=1 AND social_type=\"network\",1,0)),numerator=case(metric_id=\"followers\",if(followers_available=1 AND social_type=\"network\",followers,null()),metric_id=\"following\",if(following_available=1 AND social_type=\"network\",following,null()),metric_id=\"pending\",if(followers_available=1 AND social_type=\"network\",pending_followers,null()),metric_id=\"mutual\",if(followers_available=1 AND following_available=1 AND social_type=\"network\",mutual,null())),denominator=case(metric_id=\"followers\",if(followers_available=1 AND social_type=\"network\",1,null()),metric_id=\"following\",if(following_available=1 AND social_type=\"network\",1,null()),metric_id=\"pending\",if(followers_available=1 AND social_type=\"network\",1,null()),metric_id=\"mutual\",if(followers_available=1 AND following_available=1 AND social_type=\"network\",1,null())) | eval bucket=strftime(timestamp,\"%Y-%m-%d %H:%M:%S\"),series=\"Observed at import\" | stats sum(numerator) AS numerator sum(denominator) AS denominator max(numerator) AS peak median(numerator) AS midpoint avg(numerator) AS average dc(eval(if(eligible=1,local_date,null()))) AS days sum(eligible) AS valid_count count AS total_count BY bucket series metric_id | eval value=case(metric_id=\"followers\",peak,metric_id=\"following\",peak,metric_id=\"pending\",peak,metric_id=\"mutual\",peak) | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit metric_factor imperial_factor precision | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),value=round(value*if($units|s$=\"Imperial\",imperial_factor,metric_factor),precision),coverage=if(total_count&gt;0,100*valid_count/total_count,null()),series_label=series.\" \u00b7 \".label.\" (\".unit.\")\" | fields bucket series_label value unit coverage | sort 0 bucket series_label",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
         }
       }
     },
-    "ds_3": {
-      "type": "ds.search",
-      "name": "Mutual connections",
+    "network_chart": {
+      "type": "ds.chain",
+      "name": "network_chart",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | fields mutual",
+        "query": "| xyseries bucket series_label value",
+        "extend": "network_aggregate"
+      }
+    },
+    "engagement_options": {
+      "type": "ds.chain",
+      "name": "engagement_options",
+      "options": {
+        "query": "| where metric_id=\"__auto__\" OR metric_id IN (\"given\",\"received\")",
+        "extend": "metric_options"
+      }
+    },
+    "engagement_metadata": {
+      "type": "ds.chain",
+      "name": "engagement_metadata",
+      "options": {
+        "query": "| where metric_id!=\"__auto__\" AND ($engagement|s$=\"__auto__\" OR metric_id=$engagement|s$) | head 1 | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),title=label.\" (\".unit.\")\" | appendpipe [ stats count | where count=0 | eval metric_id=\"__none__\",unit=\"\",title=\"Choose an available metric \u00b7 cache pending or selection unavailable\" ] | fields metric_id title unit",
+        "extend": "engagement_options",
+        "enableSmartSources": true
+      }
+    },
+    "engagement_aggregate": {
+      "type": "ds.search",
+      "name": "engagement_aggregate",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:social earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" | eval metric_id=$engagement_metadata:result.metric_id|s$ | where direction=metric_id AND (metric_id!=\"received\" OR is_current_follower=1) | eval eligible=case(metric_id=\"given\",if(social_type=\"interaction\" AND direction=\"given\",1,0),metric_id=\"received\",if(social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1,1,0)),numerator=case(metric_id=\"given\",if(social_type=\"interaction\" AND direction=\"given\",1,null()),metric_id=\"received\",if(social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1,1,null())),denominator=case(metric_id=\"given\",if(social_type=\"interaction\" AND direction=\"given\",1,null()),metric_id=\"received\",if(social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1,1,null())) | eval bucket=case($grain|s$=\"Year\",coalesce(local_year,strftime(timestamp,\"%Y\")),$grain|s$=\"Month\",coalesce(local_month,strftime(timestamp,\"%Y-%m\")),true(),coalesce(local_week_start,strftime(relative_time(timestamp,\"@w1\"),\"%Y-%m-%d\"))),series=case(true(),interaction_type) | stats sum(numerator) AS numerator sum(denominator) AS denominator max(numerator) AS peak median(numerator) AS midpoint avg(numerator) AS average dc(eval(if(eligible=1,local_date,null()))) AS days sum(eligible) AS valid_count count AS total_count BY bucket series metric_id | eval value=case(metric_id=\"given\",if(valid_count&gt;0,numerator,null()),metric_id=\"received\",if(valid_count&gt;0,numerator,null())) | lookup training_lens_metric_catalog metric_id OUTPUT label metric_unit imperial_unit metric_factor imperial_factor precision | eval unit=if($units|s$=\"Imperial\",imperial_unit,metric_unit),value=round(value*if($units|s$=\"Imperial\",imperial_factor,metric_factor),precision),coverage=if(total_count&gt;0,100*valid_count/total_count,null()),series_label=series.\" \u00b7 \".label.\" (\".unit.\")\" | fields bucket series_label value unit coverage | sort 0 bucket series_label",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
         }
       }
     },
-    "ds_4": {
-      "type": "ds.search",
-      "name": "Social data availability",
+    "engagement_chart": {
+      "type": "ds.chain",
+      "name": "engagement_chart",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | eval follower_history=\"Growth requires two or more distinct exports; dates are import observations\", received_interactions=if(received_available=1,\"Supplemental file supplied; coverage depends on its contents\",\"Unavailable in native export; provide social_interactions.csv\"), follower_roster=if(followers_available=1,\"Available\",\"Not supplied; follower metrics unknown\"), following_roster=if(following_available=1,\"Available\",\"Not supplied; following metrics unknown\"), given_comments=if(comments_available=1,\"Available\",\"Not supplied\"), given_kudos=if(kudos_available=1,\"Available\",\"Not supplied\") | table follower_roster following_roster follower_history received_interactions given_comments given_kudos",
+        "query": "| xyseries bucket series_label value | appendpipe [ where $grain|s$=\"Year\" | makecontinuous bucket span=1 | eval _expanded=1 ] | where $grain|s$!=\"Year\" OR _expanded=1 | fields - _expanded",
+        "extend": "engagement_aggregate"
+      }
+    },
+    "table_2": {
+      "type": "ds.search",
+      "name": "table_2",
+      "options": {
+        "query": "index=strava sourcetype=training_lens:social [ | makeresults | eval search=if($followers_table|s$=\"Top interactions\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1 | stats count(eval(interaction_type=\"Comment\")) AS comments count(eval(interaction_type=\"Kudos\")) AS kudos BY actor_id | eval interactions=comments+kudos | sort 0 - interactions - comments actor_id | head 20 | rename actor_id AS follower_athlete_id | table follower_athlete_id comments kudos interactions | where $followers_table|s$=\"Top interactions\" | append [ search index=strava sourcetype=training_lens:social [ | makeresults | eval search=if($followers_table|s$=\"Roster\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"relationship\" | table actor_id relationship follow_status | where $followers_table|s$=\"Roster\" ] | append [ search index=strava sourcetype=training_lens:social social_type=network [ | makeresults | eval search=if($followers_table|s$=\"Observed changes\",\"*\",\"event_id=__none__\") | return $search ] earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1 | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | streamstats current=f window=1 last(followers) AS previous_followers | eval net_change=followers-previous_followers, observed_at=strftime(timestamp,\"%Y-%m-%d %H:%M:%S\") | table observed_at followers previous_followers net_change | where $followers_table|s$=\"Observed changes\" ]",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
         }
       }
     },
-    "ds_5": {
+    "table_3": {
       "type": "ds.search",
-      "name": "Follower growth \u2014 observed at import dates",
+      "name": "table_3",
       "options": {
-        "query": "index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1 | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | eval _time=timestamp | table _time followers following",
-        "queryParameters": {
-          "earliest": "0",
-          "latest": "+10y"
-        }
-      }
-    },
-    "ds_6": {
-      "type": "ds.search",
-      "name": "Follower count changes between observed exports",
-      "options": {
-        "query": "index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id=\"__none__\" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1 | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | sort 0 timestamp | streamstats current=f window=1 last(followers) AS previous_followers | eval net_change=followers-previous_followers, observed_at=strftime(timestamp,\"%Y-%m-%d %H:%M:%S\") | table observed_at followers previous_followers net_change",
-        "queryParameters": {
-          "earliest": "0",
-          "latest": "+10y"
-        }
-      }
-    },
-    "ds_7": {
-      "type": "ds.search",
-      "name": "Comments and kudos given \u2014 monthly",
-      "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"given\" | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f",
-        "queryParameters": {
-          "earliest": "0",
-          "latest": "+10y"
-        }
-      }
-    },
-    "ds_8": {
-      "type": "ds.search",
-      "name": "Interactions received from current followers \u2014 monthly",
-      "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1 | timechart span=1mon fixedrange=f cont=f count BY interaction_type limit=0 useother=f",
-        "queryParameters": {
-          "earliest": "0",
-          "latest": "+10y"
-        }
-      }
-    },
-    "ds_9": {
-      "type": "ds.search",
-      "name": "Top current followers \u2014 received comments and kudos",
-      "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where timestamp&gt;=if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.earliest|s$,\"0\")),relative_time(now(),if((match($time.earliest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.earliest|s$=\"now\"),\"+0s\",$time.earliest|s$))) AND timestamp&lt;=if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),tonumber(if(match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\"),$time.latest|s$,\"0\")),relative_time(now(),if((match($time.latest|s$,\"^[0-9]+([.][0-9]+)?$\") OR $time.latest|s$=\"now\"),\"+0s\",$time.latest|s$))) | where social_type=\"interaction\" AND direction=\"received\" AND is_current_follower=1 | stats count(eval(interaction_type=\"Comment\")) AS comments count(eval(interaction_type=\"Kudos\")) AS kudos BY actor_id | eval interactions=comments+kudos | sort 0 - interactions - comments actor_id | head 20 | rename actor_id AS follower_athlete_id | table follower_athlete_id comments kudos interactions",
-        "queryParameters": {
-          "earliest": "0",
-          "latest": "+10y"
-        }
-      }
-    },
-    "ds_10": {
-      "type": "ds.search",
-      "name": "Network roster \u2014 selected snapshot",
-      "options": {
-        "query": "index=training_lens sourcetype=training_lens:social earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"relationship\" | table actor_id relationship follow_status",
+        "query": "index=strava sourcetype=training_lens:social earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$=\"latest\" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,\"__none__\") | fields snapshot_id ] | dedup event_id | where social_type=\"network\" | eval received_interactions=if(received_available=1,\"Supplemental records supplied\",\"Unavailable; supply social_interactions.csv\"),history=\"Observed at import; no follow dates\",option_cache=\"Refresh every five minutes; absent choices are pending or unsupported\" | table followers following pending_followers mutual followers_available following_available comments_available kudos_available received_interactions history option_cache",
         "queryParameters": {
           "earliest": "0",
           "latest": "+10y"
@@ -240,7 +189,7 @@
   "inputs": {
     "time": {
       "type": "input.timerange",
-      "title": "Period",
+      "title": "Period (Year grain uses history)",
       "options": {
         "token": "time",
         "defaultValue": "-1y,now"
@@ -252,6 +201,136 @@
       "options": {
         "token": "snapshot",
         "defaultValue": "latest"
+      }
+    },
+    "sport": {
+      "type": "input.dropdown",
+      "title": "Sport",
+      "dataSources": {
+        "primary": "sport_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "sport",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "gear": {
+      "type": "input.dropdown",
+      "title": "Gear",
+      "dataSources": {
+        "primary": "gear_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"value\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "gear",
+        "defaultValue": "All",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "units": {
+      "type": "input.dropdown",
+      "title": "Units",
+      "options": {
+        "token": "units",
+        "defaultValue": "Metric",
+        "items": [
+          {
+            "label": "Metric",
+            "value": "Metric"
+          },
+          {
+            "label": "Imperial",
+            "value": "Imperial"
+          }
+        ]
+      }
+    },
+    "grain": {
+      "type": "input.dropdown",
+      "title": "Time grain",
+      "options": {
+        "token": "grain",
+        "defaultValue": "Month",
+        "items": [
+          {
+            "label": "Week",
+            "value": "Week"
+          },
+          {
+            "label": "Month",
+            "value": "Month"
+          },
+          {
+            "label": "Year",
+            "value": "Year"
+          }
+        ]
+      }
+    },
+    "network": {
+      "type": "input.dropdown",
+      "title": "Metric \u00b7 network",
+      "dataSources": {
+        "primary": "network_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"metric_id\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "network",
+        "defaultValue": "__auto__",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "engagement": {
+      "type": "input.dropdown",
+      "title": "Metric \u00b7 engagement",
+      "dataSources": {
+        "primary": "engagement_options"
+      },
+      "context": {
+        "label": "&gt; primary | seriesByName(\"label\") | renameSeries(\"label\")",
+        "value": "&gt; primary | seriesByName(\"metric_id\") | renameSeries(\"value\")"
+      },
+      "options": {
+        "token": "engagement",
+        "defaultValue": "__auto__",
+        "items": "&gt; frame(label, value) | objects()",
+        "selectFirstSearchResult": true
+      }
+    },
+    "followers_table": {
+      "type": "input.dropdown",
+      "title": "Followers",
+      "options": {
+        "token": "followers_table",
+        "defaultValue": "Top interactions",
+        "items": [
+          {
+            "label": "Top interactions",
+            "value": "Top interactions"
+          },
+          {
+            "label": "Roster",
+            "value": "Roster"
+          },
+          {
+            "label": "Observed changes",
+            "value": "Observed changes"
+          }
+        ]
       }
     }
   },
@@ -265,18 +344,18 @@
         "position": {
           "x": 0,
           "y": 0,
-          "w": 600,
-          "h": 150
+          "w": 1200,
+          "h": 360
         }
       },
       {
         "item": "viz_1",
         "type": "block",
         "position": {
-          "x": 600,
-          "y": 0,
-          "w": 600,
-          "h": 150
+          "x": 0,
+          "y": 360,
+          "w": 1200,
+          "h": 360
         }
       },
       {
@@ -284,95 +363,32 @@
         "type": "block",
         "position": {
           "x": 0,
-          "y": 150,
-          "w": 600,
-          "h": 150
+          "y": 720,
+          "w": 1200,
+          "h": 360
         }
       },
       {
         "item": "viz_3",
         "type": "block",
         "position": {
-          "x": 600,
-          "y": 150,
-          "w": 600,
-          "h": 150
-        }
-      },
-      {
-        "item": "viz_4",
-        "type": "block",
-        "position": {
           "x": 0,
-          "y": 300,
+          "y": 1080,
           "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_5",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 600,
-          "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_6",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 900,
-          "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_7",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 1200,
-          "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_8",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 1500,
-          "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_9",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 1800,
-          "w": 1200,
-          "h": 300
-        }
-      },
-      {
-        "item": "viz_10",
-        "type": "block",
-        "position": {
-          "x": 0,
-          "y": 2100,
-          "w": 1200,
-          "h": 300
+          "h": 360
         }
       }
     ],
     "globalInputs": [
       "time",
-      "snapshot"
+      "snapshot",
+      "sport",
+      "gear",
+      "units",
+      "grain",
+      "network",
+      "engagement",
+      "followers_table"
     ]
   }
 }</definition></dashboard>

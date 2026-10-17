@@ -1,6 +1,6 @@
 # Parameterized dashboards: proposed design
 
-Status: approved by the user on 2026-10-17; implementation in progress.
+Status: implemented and validated on 2026-10-17.
 
 The user wants existing panels consolidated into a minimal set of reusable, parameterized panels. Choices must be populated from lookups derived from actual data; legends and units must follow the selected metric. Keep the ten existing dashboard routes and their useful workflows. Target 28 visible panels instead of the current 77, including essential tables and operator information.
 

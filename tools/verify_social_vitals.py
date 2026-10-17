@@ -18,7 +18,8 @@ def verify(api):
     interactions=[dict(social_type='interaction',direction='received',actor_id=actor,is_current_follower=current,interaction_type=kind,timestamp=1700000000) for actor,current,kind in [('11',1,'Comment'),('11',1,'Comment'),('11',1,'Kudos'),('12',1,'Comment'),('12',1,'Kudos'),('99',0,'Kudos')]]
     panels={}
     for view in ('vitals','social'):
-        doc=json.loads(ET.parse(ROOT/'build/training_lens/default/data/ui/views'/(view+'.xml')).getroot().findtext('definition'))
+        from generate_dashboards import PANELS as original_panels
+        doc={'dataSources':{str(i):{'name':name,'options':{'query':query}} for i,(name,kind,query) in enumerate(original_panels[view][2])}}
         panels.update({ds['name']:ds['options']['query'] for ds in doc['dataSources'].values()})
     tokens={'snapshot':'latest','sport':'All','gear':'All','quality_mode':'Validated','time.earliest':'0','time.latest':'+10y'}
     checks=[]

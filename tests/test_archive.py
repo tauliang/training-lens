@@ -88,3 +88,28 @@ class LifecycleTests(unittest.TestCase):
             root=Path(t);p=make_zip(root/'a.zip');m=ingest.import_archive(p,root/'s',decode=False,config={'gear_thresholds':[{'gear':'Shoe','distance_m':60000}]})
             gear=[json.loads(line) for c in m['chunks'] if '/gear_threshold/' in c['path'] for line in (root/'s'/c['path']).read_text().splitlines()]
             self.assertEqual(len(gear),1);self.assertAlmostEqual(gear[0]['remaining_m'],53452.6)
+
+class FutureDropTests(unittest.TestCase):
+    def test_later_export_reorders_existing_activity_without_reemitting_telemetry(self):
+        from tests.test_streams import GPX
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);inbox=root/'inbox';inbox.mkdir()
+            old=data(**{'7':'activities/old.gpx'})
+            make_zip(inbox/'first.zip',payload=old,extras={'activities/old.gpx':GPX})
+            self.assertEqual(ingest.scan(root,now=0),[])
+            first=ingest.scan(root,now=60);self.assertEqual(len(first),1)
+            before={p:p.read_bytes() for p in (root/'spool').rglob('*.json')}
+            self.assertEqual(ingest.scan(root,now=120),[])
+            self.assertEqual(before,{p:p.read_bytes() for p in (root/'spool').rglob('*.json')})
+            # An identical archive under a new filename produces no new chunks.
+            (inbox/'copy.zip').write_bytes((inbox/'first.zip').read_bytes())
+            ingest.scan(root,now=180);ingest.scan(root,now=240)
+            self.assertEqual(before,{p:p.read_bytes() for p in (root/'spool').rglob('*.json')})
+            newer=data(**{'0':'999','7':'activities/new.gpx'})
+            payload=newer+old.split(b'\n',1)[1]
+            make_zip(inbox/'future.zip',payload=payload,extras={'activities/old.gpx':GPX,'activities/new.gpx':GPX})
+            ingest.scan(root,now=300);future=ingest.scan(root,now=360)
+            self.assertEqual(len(future),1);self.assertEqual(future[0]['counts']['activity'],2)
+            # Summary versions are intentional, immutable telemetry IDs are not repeated.
+            samples=[json.loads(line)['event_id'] for p in (root/'spool/sample').glob('*.json') for line in p.read_text().splitlines()]
+            self.assertEqual(len(samples),len(set(samples)))

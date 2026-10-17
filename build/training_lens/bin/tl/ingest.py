@@ -64,6 +64,9 @@ def _import(path,root,decode,timezone,athlete_id,config):
                         r.update({'athlete_id':athlete_id,'activity_id':activity['activity_id'],'stream_revision_id':revision,'schema_version':1,'parser_version':PARSER_VERSION})
                         r['event_id']=hashlib.sha256((revision+':'+r['kind']+':'+str(ordinal)).encode()).hexdigest()
                         spool.add(r)
+                    # Revision-local chunks stay identical when future exports reorder
+                    # activities; file content addressing then prevents re-indexing.
+                    for kind in {row['kind'] for row in telemetry}:spool.flush(kind)
                     status='decoded'
                 except (ValueError,KeyError,EOFError,OSError) as error:
                     if str(error)=='aggregate_decode_limit':raise

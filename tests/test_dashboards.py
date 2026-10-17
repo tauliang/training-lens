@@ -13,7 +13,8 @@ class DashboardTests(unittest.TestCase):
                 query=ds['options']['query']
                 for token in ['sport','gear','snapshot','quality_mode','activity_id']:
                     self.assertNotIn('$'+token+'$',query,'Unescaped SPL token')
-            self.assertEqual(definition['inputs']['time']['options']['defaultValue'],'0,now' if file.stem=='vitals' else '-1y,now')
+            if 'time' in definition['inputs']:self.assertEqual(definition['inputs']['time']['options']['defaultValue'],'0,now' if file.stem=='vitals' else '-1y,now')
+            elif file.stem=='setup':self.assertEqual(definition['inputs'],{})
     def test_package_reproducible_and_no_private_material(self):
         import tempfile,tarfile
         with tempfile.TemporaryDirectory() as t:

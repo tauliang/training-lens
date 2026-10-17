@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1]/'build/training_lens/default/data/ui'
-READY='search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$="latest" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,"__none__") | fields snapshot_id'
+READY='search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | where $snapshot|s$="latest" OR snapshot_id=$snapshot|s$ | sort 0 - import_epoch | head 1 | stats count AS selection_count first(snapshot_id) AS snapshot_id | eval snapshot_id=coalesce(snapshot_id,"__none__") | fields snapshot_id'
 def time_expression(token):
     value='$'+token+'|s$';numeric='match('+value+',"^[0-9]+([.][0-9]+)?$")'
     # Splunk validates/evaluates constant arguments even in an unselected if branch.
@@ -11,7 +11,7 @@ def time_expression(token):
 TIME=' | where timestamp>='+time_expression('time.earliest')+' AND timestamp<='+time_expression('time.latest')
 FILTER=' | where ($sport|s$="All" OR sport=$sport|s$) AND ($gear|s$="All" OR gear=$gear|s$) AND ($quality_mode|s$!="Flagged only" OR flagged=1)'
 def base(kind='activity',time=True,filters=True):
-    query='index=training_lens sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+READY+' ] | dedup event_id'
+    query='index=strava sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+READY+' ] | dedup event_id'
     if time:query+=TIME
     if filters:query+=FILTER
     return query
@@ -20,7 +20,7 @@ def revisions(detail=False):
     selected=' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$")' if detail else ''
     return 'search '+base(time=False,filters=False)+selected+' | where ($sport|s$="All" OR sport=$sport|s$) AND ($gear|s$="All" OR gear=$gear|s$) AND stream_revision_id!="" | fields stream_revision_id'
 
-def telemetry(kind,index='training_lens',detail=False):
+def telemetry(kind,index='strava',detail=False):
     membership=revisions(detail)
     return 'index='+index+' sourcetype=training_lens:'+kind+' earliest=0 latest=+10y [ '+membership+' | appendpipe [ stats count | where count=0 | eval stream_revision_id="__none__" ] | fields stream_revision_id ] | dedup event_id'+(' | where activity_id=$activity_id|s$ AND match($activity_id|s$,"^[0-9]{1,24}$")' if detail else TIME)
 
@@ -42,7 +42,7 @@ HR=ACT+' | eval valid_hr=if(average_hr>0 AND average_hr<=255,average_hr,null()),
 SOCIAL=base('social',filters=False)
 NETWORK=base('social',time=False,filters=False)+' | where social_type="network"'
 RECEIVED=SOCIAL+' | where social_type="interaction" AND direction="received" AND is_current_follower=1'
-OBSERVATIONS='index=training_lens sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id="__none__" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1'+TIME+' | sort 0 timestamp'
+OBSERVATIONS='index=strava sourcetype=training_lens:social social_type=network earliest=0 latest=+10y [ search index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | dedup snapshot_id | appendpipe [ stats count | where count=0 | eval snapshot_id="__none__" ] | fields snapshot_id ] | dedup event_id | sort 0 import_epoch | dedup archive_hash | where followers_available=1'+TIME+' | sort 0 timestamp'
 RECENT=ACT+DIST+' | sort 0 - timestamp | head 100 | table activity_id snapshot_id local_date activity_name sport display_distance moving_time_s average_hr relative_effort stream_status quality_flags'
 PANELS={
 'overview':('Training Lens','Recorded volume, consistency and activity history. Reported mode preserves source anomalies; Validated excludes affected distance/duration comparisons.',[
@@ -90,9 +90,9 @@ PANELS={
  ('Strength exercises','table',base('exercise',time=False,filters=False)+' | where activity_id=$activity_id|s$ | table exercise repetitions duration_s weight_raw'),
 ]),
 'geography':('Geography','Privacy-masked cells count activity visits, not GPS samples. Endpoint buffers and exported privacy zones are applied before indexing. The table remains usable without a basemap.',[
- ('Personal activity visits','map',telemetry('geography',index='training_lens_shared')+' | stats sum(visits) AS visits BY latitude longitude | sort 0 - visits | head 1000'),
- ('Visited cells (one visit per activity and cell)','table',telemetry('geography',index='training_lens_shared')+' | stats sum(visits) AS visits dc(activity_id) AS activities BY latitude longitude | sort 0 - visits | head 1000'),
- ('Geography coverage by sport','bar',telemetry('geography',index='training_lens_shared')+' | stats dc(activity_id) AS mapped_activities BY sport'),
+ ('Personal activity visits','map',telemetry('geography',index='strava_shared')+' | stats sum(visits) AS visits BY latitude longitude | sort 0 - visits | head 1000'),
+ ('Visited cells (one visit per activity and cell)','table',telemetry('geography',index='strava_shared')+' | stats sum(visits) AS visits dc(activity_id) AS activities BY latitude longitude | sort 0 - visits | head 1000'),
+ ('Geography coverage by sport','bar',telemetry('geography',index='strava_shared')+' | stats dc(activity_id) AS mapped_activities BY sport'),
 ]),
 'gear_sports':('Gear and Sports','Recorded gear usage can be incomplete. Names are preserved; correct aliases through overrides. No combined pace is calculated across sports.',[
  ('Recorded gear usage','table',ACT+GUARDS+DIST+' | stats count AS activities sum(display_distance) AS distance sum(moving_time_s) AS seconds BY gear sport | eval hours=round(seconds/3600,2) | fields gear sport activities distance hours'),
@@ -133,57 +133,20 @@ PANELS={
  ('Network roster — selected snapshot','table',base('social',time=False,filters=False)+' | where social_type="relationship" | table actor_id relationship follow_status'),
 ]),
 'data_health':('Data Health','An emitted import is not yet active. Reconciliation compares distinct record IDs against expected logical groups before publishing a ready marker.',[
- ('Active snapshot','table','index=training_lens sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
+ ('Active snapshot','table','index=strava sourcetype=training_lens:ready earliest=0 latest=+10y | sort 0 - import_epoch | head 1 | table snapshot_id import_epoch groups matched'),
  ('Pending and reconciled groups','table','`tl_reconciliation` | table snapshot_id groups matched expected_groups import_epoch'),
- ('Recent worker status','table','index=training_lens_ops sourcetype=training_lens:worker earliest=-7d | sort 0 - _time | head 20 | table _time status imports error_type'),
+ ('Recent worker status','table','index=strava_ops sourcetype=training_lens:worker earliest=-7d | sort 0 - _time | head 20 | table _time status imports error_type'),
  ('Quality issues','table',base(time=False,filters=False)+' | where flagged=1 | table activity_id local_date sport quality_flags distance_m moving_time_s elapsed_time_s raw_relative_effort relative_effort'),
  ('Completeness by year and sport','table',base(time=False,filters=False)+' | stats count AS activities count(average_hr) AS hr count(relative_effort) AS effort count(eval(stream_status="decoded")) AS decoded BY local_year sport'),
- ('Import manifests','table','index=training_lens sourcetype=training_lens:snapshot earliest=0 latest=+10y | dedup event_id | sort 0 - import_epoch | table snapshot_id import_epoch expected_records expected_groups quarantined_streams timezone exact_gps'),
+ ('Import manifests','table','index=strava sourcetype=training_lens:snapshot earliest=0 latest=+10y | dedup event_id | sort 0 - import_epoch | table snapshot_id import_epoch expected_records expected_groups quarantined_streams timezone exact_gps'),
 ]),
 'setup':('Setup','Enable the worker in local/inputs.conf, then place exports in $SPLUNK_HOME/var/lib/training_lens/inbox/. Settings are admin-owned files; see the app README for HR zones, goals, corrections, timezone, roles and privacy.',[
- ('Latest imports','table','index=training_lens sourcetype=training_lens:snapshot earliest=0 latest=+10y | dedup snapshot_id | sort 0 - import_epoch | table import_epoch snapshot_id timezone decode_enabled exact_gps quarantined_streams'),
+ ('Latest imports','table','index=strava sourcetype=training_lens:snapshot earliest=0 latest=+10y | dedup snapshot_id | sort 0 - import_epoch | table import_epoch snapshot_id timezone decode_enabled exact_gps quarantined_streams'),
  ('Setup checklist','table','| makeresults | eval worker="Enable script input in local/inputs.conf", inbox="$SPLUNK_HOME/var/lib/training_lens/inbox/", config="Admin-managed config.json in the runtime directory", zones="Configure effective-dated custom HR boundaries", privacy="Export zones and 200m endpoint buffers applied; exact GPS off by default", access="Assign athlete role; location role only for optional exact GPS" | table worker inbox config zones privacy access'),
 ])}
 
-def dropdown(token,title,values,default):return {'type':'input.dropdown','title':title,'options':{'token':token,'defaultValue':default,'items':[{'label':x,'value':x} for x in values]}}
-
 def generate():
-    for name,(title,description,panels) in PANELS.items():
-        doc={'title':title,'description':description,'visualizations':{},'dataSources':{},'inputs':{'time':{'type':'input.timerange','title':'Period','options':{'token':'time','defaultValue':'-1y,now'}},'sport':dropdown('sport','Sport',['All','Run','Ride','Hike','Alpine Ski','Weight Training','Workout','Walk','Swim','Nordic Ski','Backcountry Ski','Kayaking'],'All'),'gear':{'type':'input.text','title':'Gear (exact name or All)','options':{'token':'gear','defaultValue':'All'}},'quality':dropdown('quality_mode','Quality',['Validated','Reported','Flagged only'],'Validated'),'units':dropdown('units','Units',['Metric','Imperial'],'Metric'),'snapshot':{'type':'input.text','title':'Snapshot (latest or ID)','options':{'token':'snapshot','defaultValue':'latest'}}},'layout':{'type':'grid','options':{},'structure':[],'globalInputs':['time','sport','gear','quality','units','snapshot']}}
-        if name=='vitals':
-            doc['inputs'].pop('units');doc['layout']['globalInputs'].remove('units')
-            doc['inputs']['time']['options']['defaultValue']='0,now'
-        if name=='social':
-            doc['inputs']={key:doc['inputs'][key] for key in ('time','snapshot')}
-            doc['layout']['globalInputs']=['time','snapshot']
-        if name=='activity_detail':doc['inputs']['activity']={'type':'input.text','title':'Activity ID','options':{'token':'activity_id','defaultValue':'none'}};doc['layout']['globalInputs'].append('activity')
-        if name in ('overview','run_performance','gear_sports'):
-            doc['inputs']['history']=dropdown('history_scope','Annual panels (ignore Period)',['Full years','Comparable YTD'],'Full years')
-            doc['layout']['globalInputs'].append('history')
-            doc['description']+=' Annual panels use full snapshot history; Full years includes a partial latest year. Comparable YTD ends each year at the import calendar date.'
-        if name=='run_performance':
-            doc['inputs']['cadence']=dropdown('cadence_units','CSV cadence convention',['Unconfirmed','Strides/min','Steps/min'],'Unconfirmed')
-            doc['layout']['globalInputs'].append('cadence')
-            doc['description']+=' Pace is minutes/km or minutes/mile. Confirm CSV cadence units to show steps/min: strides are doubled; existing steps are unchanged. Cadence is weighted by recorded moving duration.'
-        if name=='gear_sports':doc['description']+=' Annual speed is distance divided by moving time, in km/h or MPH. Skiing summaries do not isolate descents from lifts or traverses.'
-        y=0
-        for i,(label,kind,query) in enumerate(panels):
-            ds='ds_'+str(i);viz='viz_'+str(i)
-            query=query.replace('$SPLUNK_HOME','SPLUNK_HOME')
-            doc['dataSources'][ds]={'type':'ds.search','name':label,'options':{'query':query,'queryParameters':{'earliest':'0','latest':'+10y'}}}
-            visual={'type':'splunk.singlevalue' if kind=='single' else 'splunk.'+kind,'title':label,'dataSources':{'primary':ds},'options':{},'showProgressBar':True,'showLastUpdated':True}
-            if name in ('run_performance','gear_sports','vitals') and kind=='line':visual['options']={'nullValueDisplay':'gaps'}
-            if kind=='map':visual['options']={'layers':[{'type':'bubble','latitude':'> primary | seriesByName("latitude")','longitude':'> primary | seriesByName("longitude")','bubbleSize':'> primary | seriesByName("visits")'}]}
-            if label.startswith('Recent activities') or label=='Comparable runs':visual['eventHandlers']=[{'type':'drilldown.linkToDashboard','options':{'app':'training_lens','dashboard':'activity_detail','tokens':[{'token':'activity_id','value':'row.activity_id.value'},{'token':'snapshot','value':'row.snapshot_id.value'}],'newTab':False}}]
-            doc['visualizations'][viz]=visual
-            # One clear panel per row in grid for portability; single-value pairs share the first rows.
-            single=kind=='single';w=600 if single else 1200;h=150 if single else 300
-            x=600 if single and i%2 else 0
-            doc['layout']['structure'].append({'item':viz,'type':'block','position':{'x':x,'y':y,'w':w,'h':h}})
-            if not single or i%2 or i==len(panels)-1 or panels[i+1][1]!='single':y+=h
-        root=ET.Element('dashboard',version='2',theme='light');ET.SubElement(root,'label').text=title;ET.SubElement(root,'description').text=doc['description'];ET.SubElement(root,'definition').text=json.dumps(doc,indent=2)
-        views=ROOT/'views';views.mkdir(parents=True,exist_ok=True);ET.ElementTree(root).write(views/(name+'.xml'),encoding='utf-8',xml_declaration=True)
-    nav=ET.Element('nav',search_view='search',color='#ED6A27')
-    for name,(title,_,_) in PANELS.items():ET.SubElement(nav,'view',name=name,default='true' if name=='overview' else 'false')
-    (ROOT/'nav').mkdir(exist_ok=True);ET.ElementTree(nav).write(ROOT/'nav/default.xml',encoding='utf-8',xml_declaration=True)
+    from dashboard_components import generate as build_views
+    build_views(PANELS,ROOT)
+
 if __name__=='__main__':generate()

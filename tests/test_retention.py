@@ -6,4 +6,4 @@ class RetentionTests(unittest.TestCase):
         macros=configparser.ConfigParser(interpolation=None);macros.read(ROOT/'macros.conf')
         indexes=configparser.ConfigParser(interpolation=None);indexes.read(ROOT/'indexes.conf')
         ready_index=re.search(r'index=([a-z_]+)',macros['tl_active']['definition'])[1]
-        self.assertGreaterEqual(int(indexes[ready_index]['frozenTimePeriodInSecs']),int(indexes['training_lens']['frozenTimePeriodInSecs']))
+        self.assertGreaterEqual(int(indexes[ready_index]['frozenTimePeriodInSecs']),int(indexes['strava']['frozenTimePeriodInSecs']))

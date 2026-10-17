@@ -30,7 +30,7 @@ Copy a completed Strava ZIP into it. The worker waits for two stable observation
 
 New exports replace current membership instead of doubling historical totals. Summary and telemetry content have deterministic IDs; unchanged streams are reused across exports. Physical duplicate events from retries are deduplicated by searches. No automatic deletion of raw spool files is performed; keep them for recovery or archive them only after verifying indexed readiness and backups.
 
-The default period is the past year. Choose All time for older activity history. Snapshot defaults to latest; paste a ready snapshot ID from Data Health to pin a historical export. Activity rows link to detail dashboards, or enter a numeric activity ID directly. Gear is an exact-name filter or `All`.
+The default period is the past year. Choose All time for older activity history. Snapshot defaults to latest; paste a ready snapshot ID from Data Health to pin a historical export. Activity rows link to detail dashboards, or enter a numeric activity ID directly. Sport and Gear are lookup-backed dropdowns derived from the selected ready snapshot.
 
 ## Zones, privacy, goals and corrections
 
@@ -56,9 +56,9 @@ The zone numbers above are illustrative custom boundaries; set your own. No age-
 
 Goal metrics: `distance_m`, `moving_time_s`, `activity_count`, `elevation_gain_m`. Goal progress uses validated source measures in the calendar week/month/year through the import date, labeled with its period start and as-of date. Corrections preserve source history in older snapshots. Correctable fields: distance, moving/elapsed time, elevation, effort, average HR, gear and sport. Config changes produce a new snapshot and recompute derived analysis.
 
-Activity samples exclude raw latitude and longitude. Geography uses coarse cells after automatic masking of exported privacy zones and the first/last 200 meters of recorded tracks. Cells intersecting protected areas are conservatively suppressed. No address or geocoder request is indexed/sent. Exact GPS is off by default; enabling it sends raw points to the separately restricted `training_lens_private` index, accessible only to admin and users assigned `training_lens_location`. Masks affect new derived data, not previously indexed locations. Remove old data through your administrator's retention/purge procedures if needed.
+Activity samples exclude raw latitude and longitude. Geography uses coarse cells after automatic masking of exported privacy zones and the first/last 200 meters of recorded tracks. Cells intersecting protected areas are conservatively suppressed. No address or geocoder request is indexed/sent. Exact GPS is off by default; enabling it sends raw points to the separately restricted `strava_private` index, accessible only to admin and users assigned `training_lens_location`. Masks affect new derived data, not previously indexed locations. Remove old data through your administrator's retention/purge procedures if needed.
 
-`training_lens_viewer` can search sanitized geographic cells in `training_lens_shared`, but private dashboards are restricted to athlete/admin. Do not grant the athlete role merely to share a chart. The included geography dashboard uses private current membership; a separate shared dashboard and membership publisher are not part of this private release.
+`training_lens_viewer` can search sanitized geographic cells in `strava_shared`, but private dashboards are restricted to athlete/admin. Do not grant the athlete role merely to share a chart. The included geography dashboard uses private current membership; a separate shared dashboard and membership publisher are not part of this private release.
 
 ## Data rules and limitations
 
@@ -99,7 +99,7 @@ Speed uses summed distance / summed moving time within each sport/year, in MPH o
 
 ## Social dashboard
 
-The Social dashboard imports `followers.csv`, `following.csv`, `comments.csv` and `reactions.csv` when present. It displays accepted/pending followers, following, mutual connections, observed follower-count growth and changes, monthly contributions given, monthly received interactions from current followers, a top-current-followers table, a relationship roster and availability status. Social uses only Period and Snapshot selectors.
+The Social dashboard imports `followers.csv`, `following.csv`, `comments.csv` and `reactions.csv` when present. It displays accepted/pending followers, following, mutual connections, observed follower-count growth and changes, monthly contributions given, monthly received interactions from current followers, a top-current-followers table, a relationship roster and availability status. Social network history uses Period independently of the pinned Snapshot. Engagement and roster use the selected snapshot. Sport/Gear only scope the activity-derived choices, so leave them at All on Social.
 
 Native archive comments/kudos are treated as contributions given, not as people engaging with your activities. Comment bodies, names, reaction parent IDs and social preferences are omitted. Follower IDs are stored in the athlete-restricted activity index. Optional files are not required for ordinary activity imports. Missing files produce unknown metrics, not a fabricated zero. CSV dates without offsets use the export's UTC convention; reporting uses the configured timezone.
 
@@ -119,10 +119,36 @@ Supply a complete desired received-interaction history with each replacement exp
 
 ## Vitals dashboard
 
-Vitals uses activity-associated measurements and defaults to All time. It provides exercise-HR coverage, moving-duration-weighted average HR by month/year and sport, annual recorded maximum HR, configured HR-zone hours by year, and median recorded athlete-weight values by activity year. All heart-rate charts use bpm. Weight preserves original CSV units; the Units selector is intentionally absent here. The activity date is not asserted to be a weigh-in date.
+Vitals uses activity-associated measurements and defaults to All time. It provides exercise-HR coverage, moving-duration-weighted average HR by month/year and sport, annual recorded maximum HR, configured HR-zone hours by year, and median recorded athlete-weight values by activity year. All heart-rate charts use bpm. Weight preserves original CSV units under either Units setting. The activity date is not asserted to be a weigh-in date.
 
 Average HR must be positive and at most 255 bpm; time weighting also requires a positive, valid moving duration. Maximum HR uses the detailed CSV column where available, otherwise the summary Max Heart Rate column. Maximum values outside the supported range or below a reported activity average are omitted from peak charts. Coverage distinguishes activities with an average from those that also have usable duration for weighting. Source values remain visible in activity summaries.
 
 HR-zone charts require configured boundaries and a reimport using importer 1.0.3; annual records use the configured reporting timezone. Effective-dated zone changes can affect comparisons across years. These are workout measurements, not resting measurements or clinical assessments. Different sports/intensities should be compared separately.
 
 The supplied archive contains no standard FIT max-MET/VO2 max messages, no standard FIT HRV messages and no VO2 max column in the activity CSV. VO2 max, resting HR and HRV are explicitly listed as unavailable; this release does not estimate them. No generic FIT developer metric or proprietary field is inferred as VO2 max. Reimport on upgrade to emit recorded weight, maximum-HR fallback and annual HR-zone context.
+
+## Parameterized panels and lookup maintenance
+
+Version **1.0.0**, author **Tau Liang**. The main ingestion index is **`strava`**. Optional exact GPS uses `strava_private`, masked cells use `strava_shared`, and worker logs use `strava_ops`. App ID, sourcetypes and role names remain `training_lens`.
+
+The ten dashboard URLs now contain 28 panels. Choose a metric to reuse its chart; labels, legends and axis units come from the same catalog definition. Time grain replaces weekly/monthly/yearly copies. The Overview summary aggregates the selected period directly. HR comparison overlays average and peak bpm; engagement overlays comments and kudos. Rate series retain sport when Sport=All, so skiing and running pace are not combined. Table-mode selectors retain investigation, coverage and operational workflows. Maps show an explicitly labeled top 1,000 cells.
+
+An admin-owned static catalog defines supported metrics. Two searches refresh private availability and dimension CSV lookups every five minutes, using ready snapshots. No reimport is needed for this selector change. Existing source-dependent features still require records emitted by importer 1.0.3. Lookup files shipped in the package contain no athlete data; runtime caches have headers only.
+
+Availability describes the complete snapshot, not the selected period. Automatic chooses the first available metric by catalog order. A bookmarked metric absent after a sport/snapshot change shows “Choose an available metric” and an empty chart. Missing cache for a newly ready snapshot is pending. After 15 minutes, old metric choices are marked “cache stale”; Data Health → Import readiness → Availability cache reports age/status. A chart with a valid choice and no eligible observations in the selected period remains empty.
+
+Cache refresh aggregates telemetry per immutable revision before associating snapshots. Expansion cardinality guards and a reconciliation guard suppress publication on detected partial data; `override_if_empty=false` preserves the prior cache. Pending snapshots are excluded without blocking refresh of ready snapshots. Investigate scheduler/search warnings rather than increasing concurrency or memory limits blindly. General search-job finalization and administrative cancellation are monitored by Splunk scheduler logs; a CSV write alone is not a universal job-success certificate.
+
+Lookup definitions/files are app-scoped: athletes can read, administrators can write; the sanitized viewer role cannot read these private caches. Keep scheduled refresh ownership with an administrator. Clustered deployment and multi-athlete use require separate design.
+
+Upgrade from an earlier development build using `training_lens` indexes: new monitors/searches use `strava` and do not migrate old buckets. Reimport the original ZIP into the new indexes using a fresh runtime/spool checkpoint or perform an administrator-managed migration, then verify reconciliation before retiring old indexes. Do not merely rename bucket directories. Back up runtime state and indexes first.
+
+
+## Repeat and future folder drops
+
+After the one-time installation, role assignment, configuration and input enablement, copy ZIPs to `$SPLUNK_HOME/var/lib/training_lens/inbox/`. No per-export command or lookup edit is needed. The worker waits for two unchanged observations at least 60 seconds apart, then imports; reconciliation activates the new snapshot and the five-minute cache refresh supplies its selector choices.
+
+Dropping the same bytes again, including under another filename, produces the same snapshot and no new spool chunks. Future overlapping exports preserve versioned summary records intentionally. Every dashboard selects one complete snapshot and deduplicates event IDs, so an activity appears once and corrections/deletions follow the selected export. Full snapshots are required; this is not an append-only delta-file importer. Unchanged telemetry uses deterministic revision IDs and revision-local chunks, even if activities are reordered or new activities appear first. Keep the runtime manifests and spool/checkpoint state when upgrading; deleting ingestion state or replaying sources manually can cause physical re-indexing outside the normal folder-drop contract.
+
+
+Pre-release upgrade caveat: older mixed-revision spool chunks are not rewritten. A first later export can physically emit some unchanged telemetry once in the new chunk layout; deterministic event-ID deduplication still keeps dashboard totals unique. Clean1.0.0 installs use revision-local chunks from the first import.
