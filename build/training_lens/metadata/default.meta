@@ -1,0 +1,5 @@
+[]
+access = read : [ admin, training_lens_athlete, training_lens_location ], write : [ admin ]
+export = none
+[savedsearches/Training Lens reconcile imports]
+access = read : [ admin ], write : [ admin ]

@@ -1,6 +1,7 @@
 """Deterministic snapshot builder. Index reconciliation, not disk state, activates data."""
 import hashlib
 import json
+import re
 import time
 import zipfile
 from pathlib import Path
@@ -21,6 +22,18 @@ def _import(path,root,decode,timezone,athlete_id,config):
     epoch=previous['import_epoch'] if previous else time.time();spool=Spool(root);failures=0;expanded=0
     def base(kind):return {'kind':kind,'athlete_id':athlete_id,'snapshot_id':sid,'timestamp':epoch,'import_epoch':epoch,'schema_version':1,'parser_version':PARSER_VERSION}
     with zipfile.ZipFile(path) as z:
+        config=dict(config)
+        if 'privacy_zones.csv' in info['members']:
+            from .csv_parser import read_csv
+            zones=list(config.get('privacy_zones',[]))
+            for row in read_csv(read_member(z,'privacy_zones.csv')):
+                coords=[float(x) for x in re.findall(r'[-+]?\d+(?:\.\d+)?',row.get('Latitude & Longitude',''))]
+                radius_text=row.get('Radius','');radius_values=re.findall(r'\d+(?:\.\d+)?',radius_text)
+                if len(coords)!=2 or not radius_values:raise ValueError('invalid_privacy_zone')
+                radius=float(radius_values[0])*(1000 if 'kilo' in radius_text.lower() else 1609.344 if 'mile' in radius_text.lower() else 1)
+                if not (-90<=coords[0]<=90 and -180<=coords[1]<=180 and radius>0):raise ValueError('invalid_privacy_zone')
+                zones.append(dict(latitude=coords[0],longitude=coords[1],radius_m=radius))
+            config['privacy_zones']=zones
         activities=list(parse_activities(read_member(z,'activities.csv'),athlete_id,sid,timezone))
         overrides=config.get('overrides',[])
         for activity in activities:
@@ -56,6 +69,14 @@ def _import(path,root,decode,timezone,athlete_id,config):
             spool.add(activity)
             if revision:
                 membership=base('membership');membership.update({'activity_id':activity['activity_id'],'stream_revision_id':revision,'expected_records':len(telemetry),'event_id':hashlib.sha256((sid+':member:'+revision).encode()).hexdigest()});spool.add(membership)
+        if 'structured_details.csv' in info['members']:
+            from .csv_parser import read_csv,number
+            by_id={a['activity_id']:a for a in activities}
+            for ordinal,row in enumerate(read_csv(read_member(z,'structured_details.csv'))):
+                activity=by_id.get(row.get('Activity ID'))
+                if activity is None:continue
+                exercise=base('exercise');exercise.update(activity_id=activity['activity_id'],timestamp=activity['timestamp'],exercise=row.get('Exercise Name',''),repetitions=number(row.get('Repetitions')),duration_s=number(row.get('Duration (seconds)')),weight_raw=row.get('Weight',''),event_id=sid+':exercise:'+str(ordinal))
+                spool.add(exercise)
         # Configured goals/preferences are kept as operational data, never raw account demographics.
         for i,goal in enumerate(config.get('goals',[])):
             if goal.get('metric') not in ('distance_m','moving_time_s','activity_count','elevation_gain_m'):raise ValueError('invalid_goal_metric')
@@ -63,7 +84,7 @@ def _import(path,root,decode,timezone,athlete_id,config):
             target=number(goal.get('target'))
             if target is None or target<=0:raise ValueError('invalid_goal_target')
             item=base('goal');item.update({k:goal.get(k) for k in ('sport','metric','period')});item.update(target=target,event_id=sid+':goal:'+str(i));spool.add(item)
-    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
+    record=base('snapshot');record.update({'event_id':sid+':snapshot','expected_records':len(activities)+spool.counts.get('exercise',0)+spool.counts.get('goal',0),'expected_groups':1+spool.counts.get('membership',0),'quarantined_streams':failures,'decode_enabled':int(decode),'timezone':timezone,'exact_gps':int(bool(config.get('exact_gps',False)))})
     spool.add(record);chunks=spool.finish()
     manifest={'snapshot_id':sid,'import_epoch':epoch,'state':'emitted','counts':spool.counts,'chunks':chunks,'quarantined_streams':failures}
     write_json(manifest_path,manifest);return manifest

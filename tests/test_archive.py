@@ -49,3 +49,11 @@ class LifecycleTests(unittest.TestCase):
     def test_config_change_creates_new_snapshot(self):
         with tempfile.TemporaryDirectory() as t:
             root=Path(t);p=make_zip(root/'a.zip');a=ingest.import_archive(p,root/'s',decode=False);b=ingest.import_archive(p,root/'s',decode=False,timezone='America/New_York');self.assertNotEqual(a['snapshot_id'],b['snapshot_id'])
+    def test_privacy_zone_from_export_masks_shared_geography(self):
+        from tests.test_streams import GPX
+        payload=data(**{'7':'activities/track.gpx'})
+        with tempfile.TemporaryDirectory() as t:
+            root=Path(t);p=make_zip(root/'a.zip',payload=payload,extras={'activities/track.gpx':('<gpx><trk><trkseg>'+''.join('<trkpt lat="'+str(40+i*.01)+'" lon="-74"><time>2026-01-01T12:00:'+str(i*10).zfill(2)+'Z</time></trkpt>' for i in range(5))+'</trkseg></trk></gpx>').encode(),'privacy_zones.csv':b'Address,Radius,Latitude & Longitude\nprivate,5 kilometers,"40,-74"\n'})
+            result=ingest.import_archive(p,root/'state')
+            self.assertEqual(result['counts'].get('geography',0),0);self.assertEqual(result['counts']['sample'],5)
+            text=''.join(p.read_text() for p in (root/'state/spool').rglob('*.json'));self.assertNotIn('private',text);self.assertNotIn('latitude',text)
